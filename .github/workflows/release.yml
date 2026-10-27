@@ -1,10 +1,17 @@
 name: Release
 
-# Pushing a tag like v0.2.0 publishes the GitHub release that HACS offers as an update.
+# A new version in manifest.json on main publishes the GitHub release (and its v<version>
+# tag) that HACS offers as an update. Pushing a v* tag by hand works too.
 on:
   push:
+    branches:
+      - main
+    paths:
+      - custom_components/lan_power_manager/manifest.json
+      - .github/workflows/release.yml
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,21 +24,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Check the tag matches the manifest version
+      - name: Read the manifest version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version=$(jq -r .version custom_components/lan_power_manager/manifest.json)
-          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+          tag="v${version}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "${GITHUB_REF_NAME}" != "${tag}" ]; then
             echo "Tag ${GITHUB_REF_NAME} does not match manifest version ${version}"
             exit 1
           fi
+          if [ "${GITHUB_REF_TYPE}" != "tag" ] && gh release view "${tag}" -R "${GITHUB_REPOSITORY}" > /dev/null 2>&1; then
+            echo "Release ${tag} already exists: nothing to do"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Zip the integration
+        if: steps.version.outputs.skip != 'true'
         run: |
           cd custom_components/lan_power_manager
           zip -r "${GITHUB_WORKSPACE}/lan_power_manager.zip" . -x "__pycache__/*"
 
       - name: Publish the release
+        if: steps.version.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: LAN Power Manager ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: lan_power_manager.zip
           generate_release_notes: true
