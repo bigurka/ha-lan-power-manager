@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LAN Power Manager",
+        "description": "Le reti in cui cercare i dispositivi e l'account predefinito per spegnere i computer. Quali dispositivi avranno uno switch lo decidi dopo, nel pannello LAN Power Manager.",
+        "data": {
+          "subnets": "Reti (CIDR, separate da virgola)",
+          "username": "Utente (amministratore Windows / SSH)",
+          "password": "Password",
+          "win_domain": "Dominio Windows (facoltativo)"
+        },
+        "data_description": {
+          "subnets": "Es. 192.168.1.0/24, 10.0.5.0/24. Proposte dalle schede di rete di Home Assistant.",
+          "username": "Vale per tutti i computer mappati senza credenziali proprie. Lascia vuoto per impostarle dispositivo per dispositivo."
+        }
+      }
+    },
+    "error": {
+      "invalid_subnet": "Rete non valida: usa la notazione CIDR, es. 192.168.1.0/24.",
+      "no_subnet": "Inserisci almeno una rete.",
+      "subnet_too_large": "Troppi indirizzi da scansionare: usa reti più piccole (fino a /20)."
+    },
+    "abort": {
+      "single_instance_allowed": "LAN Power Manager è già configurata."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opzioni LAN Power Manager",
+        "data": {
+          "subnets": "Reti (CIDR, separate da virgola)",
+          "username": "Utente (amministratore Windows / SSH)",
+          "password": "Password (vuota = invariata)",
+          "win_domain": "Dominio Windows (facoltativo)",
+          "scan_interval_minutes": "Scansione completa delle reti ogni (0 = solo manuale)",
+          "poll_interval_seconds": "Controllo stato dei dispositivi mappati ogni",
+          "shutdown_delay": "Preavviso prima dello spegnimento (Windows)",
+          "shutdown_message": "Messaggio di avviso (Windows)",
+          "user_policy": "Se c'è un utente collegato (Windows)"
+        }
+      }
+    },
+    "error": {
+      "invalid_subnet": "Rete non valida: usa la notazione CIDR, es. 192.168.1.0/24.",
+      "no_subnet": "Inserisci almeno una rete.",
+      "subnet_too_large": "Troppi indirizzi da scansionare: usa reti più piccole (fino a /20)."
+    }
+  },
+  "selector": {
+    "user_policy": {
+      "options": {
+        "force": "Avvisa, aspetta e spegni chiudendo i programmi",
+        "skip": "Non spegnere"
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "power": {
+        "name": "Alimentazione"
+      }
+    }
+  },
+  "services": {
+    "scan": {
+      "name": "Scansiona rete",
+      "description": "Scansiona subito le reti configurate e aggiorna l'inventario dei dispositivi."
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "LAN Power Manager",
+        "description": "Subnets to scan for devices and the default account used to switch computers off. Which devices get a switch is decided later in the LAN Power Manager panel.",
+        "data": {
+          "subnets": "Subnets (CIDR, comma separated)",
+          "username": "Username (Windows admin / SSH)",
+          "password": "Password",
+          "win_domain": "Windows domain (optional)"
+        },
+        "data_description": {
+          "subnets": "e.g. 192.168.1.0/24, 10.0.5.0/24. Detected from the Home Assistant network adapters.",
+          "username": "Used for every mapped computer that has no own credentials. Leave empty to set them per device."
+        }
+      }
+    },
+    "error": {
+      "invalid_subnet": "Invalid subnet: use the CIDR notation, e.g. 192.168.1.0/24.",
+      "no_subnet": "Enter at least one subnet.",
+      "subnet_too_large": "Too many addresses to scan: use smaller subnets (up to /20)."
+    },
+    "abort": {
+      "single_instance_allowed": "LAN Power Manager is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "LAN Power Manager options",
+        "data": {
+          "subnets": "Subnets (CIDR, comma separated)",
+          "username": "Username (Windows admin / SSH)",
+          "password": "Password (leave empty to keep it)",
+          "win_domain": "Windows domain (optional)",
+          "scan_interval_minutes": "Full network scan every (0 = only manual)",
+          "poll_interval_seconds": "Check state of mapped devices every",
+          "shutdown_delay": "Warning before shutdown (Windows)",
+          "shutdown_message": "Warning message (Windows)",
+          "user_policy": "If a user is logged on (Windows)"
+        }
+      }
+    },
+    "error": {
+      "invalid_subnet": "Invalid subnet: use the CIDR notation, e.g. 192.168.1.0/24.",
+      "no_subnet": "Enter at least one subnet.",
+      "subnet_too_large": "Too many addresses to scan: use smaller subnets (up to /20)."
+    }
+  },
+  "selector": {
+    "user_policy": {
+      "options": {
+        "force": "Warn, wait, then shut down closing programs",
+        "skip": "Do not shut down"
+      }
+    }
+  },
+  "entity": {
+    "switch": {
+      "power": {
+        "name": "Power"
+      }
+    }
+  },
+  "services": {
+    "scan": {
+      "name": "Scan network",
+      "description": "Scans the configured subnets now and updates the device inventory."
+    }
+  }
+}
