@@ -91,7 +91,8 @@ On first start the integration generates **its own SSH key** (ed25519). The priv
 Home Assistant `.storage` folder; the public half is shown at the top of the panel (*Home Assistant SSH
 key*).
 
-For each computer, in the device dialog choose the **SSH** method, the system (Windows or Linux/macOS),
+First enable the SSH server on the computer: see [Enabling the SSH server](#enabling-the-ssh-server).
+Then, for each computer, in the device dialog choose the **SSH** method, the system (Windows or Linux/macOS),
 the user, and press **Setup commands**: the panel prepares the commands to paste on the computer.
 
 - **Windows**: paste them in PowerShell run as administrator. They install and start the Windows
@@ -116,6 +117,50 @@ identity* and test again. The check happens before any credential is sent.
 
 A password is still possible (optional field) but not needed with the key. The logged-on user rule only
 applies to the WMI method.
+
+<a id="enabling-the-ssh-server"></a>
+
+### Enabling the SSH server on the computer
+Do this once per computer, then use **Setup commands** in the panel to install the Home Assistant key.
+
+**Windows 10 / 11** (Home and Pro)
+1. *Settings → System → Optional features* (Windows 10: *Settings → Apps → Optional features*) →
+   *View features* / *Add a feature* → search **OpenSSH Server** → *Install*.
+2. Open *Services* (`services.msc`) → **OpenSSH SSH Server** → *Startup type: Automatic* → *Start*.
+3. The firewall rule "OpenSSH SSH Server (sshd)" for port 22 is created with the feature. If you use
+   another firewall, allow TCP port 22 from Home Assistant.
+
+   Or, in PowerShell run as administrator (the panel's setup commands already do all of this):
+   ```powershell
+   Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+   Set-Service -Name sshd -StartupType Automatic
+   Start-Service sshd
+   ```
+4. Username for Home Assistant: the name of the user folder in `C:\Users\` (also for Microsoft accounts).
+   Use an **administrator** account: Windows reads its key from
+   `C:\ProgramData\ssh\administrators_authorized_keys`, which is where the setup commands write it.
+
+**Linux**
+1. Install and start the SSH server:
+   - Debian / Ubuntu / Mint / Raspberry Pi OS: `sudo apt install openssh-server` then
+     `sudo systemctl enable --now ssh`
+   - Fedora / RHEL / Rocky: `sudo dnf install openssh-server` then `sudo systemctl enable --now sshd`
+   - Arch: `sudo pacman -S openssh` then `sudo systemctl enable --now sshd`
+2. Firewall, if active: `sudo ufw allow ssh` (Ubuntu) or
+   `sudo firewall-cmd --permanent --add-service=ssh && sudo firewall-cmd --reload` (Fedora/RHEL).
+3. Run the panel's setup commands **as the user Home Assistant logs in with**: they add the key and the
+   sudo rule that allows `shutdown` without a password.
+
+**macOS**
+1. *System Settings → General → Sharing* → turn on **Remote Login** (older versions: *System Preferences
+   → Sharing → Remote Login*). Under "Allow access for" you can limit it to the user Home Assistant uses.
+   From Terminal: `sudo systemsetup -setremotelogin on`.
+2. Run the panel's setup commands (choose *Linux / macOS*) in Terminal as that user.
+3. Note: most Macs only wake from **sleep** with Wake-on-LAN (*Wake for network access* in the energy
+   settings), not from a full shutdown.
+
+**Check it works**: from another computer `ssh <user>@<ip>` (Windows: `Test-NetConnection <ip> -Port 22`),
+then **Test connection** in the panel.
 
 ### Home Assistant
 - The scan uses ARP/NetBIOS: Home Assistant must be **on the same network** as the computers (HA OS and
@@ -241,7 +286,8 @@ Al primo avvio l'integrazione genera **una propria chiave SSH** (ed25519). La pa
 cartella `.storage` di Home Assistant; la parte pubblica è visibile in cima al pannello (*Chiave SSH di
 Home Assistant*).
 
-Per ogni PC, nel dialogo del dispositivo scegli il metodo **SSH**, il sistema (Windows o Linux/macOS),
+Prima attiva il server SSH sul computer: vedi [Attivare il server SSH](#attivare-il-server-ssh).
+Poi, per ogni PC, nel dialogo del dispositivo scegli il metodo **SSH**, il sistema (Windows o Linux/macOS),
 l'utente, e premi **Comando di installazione**: il pannello prepara i comandi da incollare sul PC.
 
 - **Windows**: incollali in PowerShell aperto come amministratore. Installano e avviano il *Server
@@ -266,6 +312,52 @@ ripeti la verifica. Il controllo avviene prima di inviare qualsiasi credenziale.
 
 Una password resta possibile (campo facoltativo) ma con la chiave non serve. La regola "se c'è un utente
 collegato" vale solo per il metodo WMI.
+
+<a id="attivare-il-server-ssh"></a>
+
+### Attivare il server SSH sul computer
+Si fa una volta per computer; poi con **Comando di installazione** nel pannello si installa la chiave di
+Home Assistant.
+
+**Windows 10 / 11** (Home e Pro)
+1. *Impostazioni → Sistema → Funzionalità facoltative* (Windows 10: *Impostazioni → App → Funzionalità
+   facoltative*) → *Visualizza funzionalità* / *Aggiungi una funzionalità* → cerca **Server OpenSSH** →
+   *Installa*.
+2. Apri *Servizi* (`services.msc`) → **OpenSSH SSH Server** → *Tipo di avvio: Automatico* → *Avvia*.
+3. La regola firewall "OpenSSH SSH Server (sshd)" per la porta 22 viene creata con la funzionalità. Se usi
+   un altro firewall, consenti la porta TCP 22 da Home Assistant.
+
+   Oppure, in PowerShell aperto come amministratore (il comando di installazione del pannello fa già tutto):
+   ```powershell
+   Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+   Set-Service -Name sshd -StartupType Automatic
+   Start-Service sshd
+   ```
+4. Utente da indicare in Home Assistant: il nome della cartella utente in `C:\Users\` (anche con un
+   account Microsoft). Usa un account **amministratore**: Windows ne legge la chiave da
+   `C:\ProgramData\ssh\administrators_authorized_keys`, dove la scrive il comando di installazione.
+
+**Linux**
+1. Installa e avvia il server SSH:
+   - Debian / Ubuntu / Mint / Raspberry Pi OS: `sudo apt install openssh-server` poi
+     `sudo systemctl enable --now ssh`
+   - Fedora / RHEL / Rocky: `sudo dnf install openssh-server` poi `sudo systemctl enable --now sshd`
+   - Arch: `sudo pacman -S openssh` poi `sudo systemctl enable --now sshd`
+2. Firewall, se attivo: `sudo ufw allow ssh` (Ubuntu) oppure
+   `sudo firewall-cmd --permanent --add-service=ssh && sudo firewall-cmd --reload` (Fedora/RHEL).
+3. Esegui il comando di installazione del pannello **con l'utente usato da Home Assistant**: aggiunge la
+   chiave e la regola sudo che permette `shutdown` senza password.
+
+**macOS**
+1. *Impostazioni di Sistema → Generali → Condivisione* → attiva **Login remoto** (versioni precedenti:
+   *Preferenze di Sistema → Condivisione → Login remoto*). In "Consenti l'accesso a" puoi limitarlo
+   all'utente usato da Home Assistant. Da Terminale: `sudo systemsetup -setremotelogin on`.
+2. Esegui nel Terminale, con quell'utente, il comando di installazione del pannello (scegli *Linux / macOS*).
+3. Nota: la maggior parte dei Mac si risveglia con il Wake-on-LAN solo dallo **stop** (*Riattiva per
+   accesso alla rete* nelle impostazioni di energia), non da spento.
+
+**Verifica**: da un altro computer `ssh <utente>@<ip>` (Windows: `Test-NetConnection <ip> -Port 22`), poi
+**Verifica connessione** nel pannello.
 
 ### Home Assistant
 - La scansione usa ARP/NetBIOS: Home Assistant deve stare **nella stessa rete** dei PC (HA OS e i container
