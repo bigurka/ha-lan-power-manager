@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "LAN Power Manager",
-        "description": "Le reti in cui cercare i dispositivi e l'account predefinito per spegnere i computer. Quali dispositivi avranno uno switch lo decidi dopo, nel pannello LAN Power Manager.",
+        "description": "Le reti in cui cercare i dispositivi e l'account predefinito per spegnere i computer. Quali dispositivi avranno uno switch lo decidi dopo, nel [pannello LAN Power](/lan-power-manager) della barra laterale.",
         "data": {
           "subnets": "Reti (CIDR, separate da virgola)",
           "username": "Utente (amministratore Windows / SSH)",
@@ -29,6 +29,7 @@
     "step": {
       "init": {
         "title": "Opzioni LAN Power Manager",
+        "description": "I dispositivi si scansionano, mappano e accendono/spengono nel [pannello LAN Power](/lan-power-manager). Qui imposti reti, account predefinito e intervalli.",
         "data": {
           "subnets": "Reti (CIDR, separate da virgola)",
           "username": "Utente (amministratore Windows / SSH)",

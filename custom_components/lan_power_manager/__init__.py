@@ -6,9 +6,9 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, device_registry as dr
 
-from .const import DOMAIN
+from .const import DOMAIN, PANEL_URL_PATH
 from .manager import NetworkManager
 from .panel import async_register_panel, async_unregister_panel
 from .storage import DeviceStore
@@ -58,9 +58,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: LanPowerConfigEntry) -> 
     await manager.async_setup()
 
     await async_register_panel(hass)
+    _async_register_hub_device(hass, entry)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
+
+
+def _async_register_hub_device(hass: HomeAssistant, entry: LanPowerConfigEntry) -> None:
+    """A service device on the integration page whose link opens the LAN Power panel."""
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, "hub")},
+        name="LAN Power Manager",
+        manufacturer="LAN Power Manager",
+        model="LAN Power panel",
+        entry_type=dr.DeviceEntryType.SERVICE,
+        configuration_url=f"homeassistant://{PANEL_URL_PATH}",
+    )
 
 
 async def _async_options_updated(hass: HomeAssistant, entry: LanPowerConfigEntry) -> None:

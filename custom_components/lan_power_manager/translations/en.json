@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "LAN Power Manager",
-        "description": "Subnets to scan for devices and the default account used to switch computers off. Which devices get a switch is decided later in the LAN Power Manager panel.",
+        "description": "Subnets to scan for devices and the default account used to switch computers off. Which devices get a switch is decided later in the [LAN Power panel](/lan-power-manager) in the sidebar.",
         "data": {
           "subnets": "Subnets (CIDR, comma separated)",
           "username": "Username (Windows admin / SSH)",
@@ -29,6 +29,7 @@
     "step": {
       "init": {
         "title": "LAN Power Manager options",
+        "description": "Devices are scanned, mapped and switched on/off in the [LAN Power panel](/lan-power-manager). Here you set the subnets, the default account and the intervals.",
         "data": {
           "subnets": "Subnets (CIDR, comma separated)",
           "username": "Username (Windows admin / SSH)",
