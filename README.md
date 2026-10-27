@@ -136,9 +136,18 @@ Do this once per computer, then use **Setup commands** in the panel to install t
    Set-Service -Name sshd -StartupType Automatic
    Start-Service sshd
    ```
-4. Username for Home Assistant: the name of the user folder in `C:\Users\` (also for Microsoft accounts).
-   Use an **administrator** account: Windows reads its key from
-   `C:\ProgramData\ssh\administrators_authorized_keys`, which is where the setup commands write it.
+4. **Which user to enter in Home Assistant** (field *Username* of the device):
+   - It must be an account that is an **administrator** of the computer. Check in *Settings → Accounts →
+     Your info*: under the name it says "Administrator".
+   - Enter the **short Windows user name**, not the e-mail. To find it, open a command prompt on the
+     computer and type `whoami`: it answers e.g. `desktop-a1b2\mario`; the user name is the part after
+     the backslash, `mario`. It is also the name of the user's folder in `C:\Users\`.
+   - If you sign in to Windows with a **Microsoft account** (an e-mail address) this is still the short
+     name shown by `whoami` (often the first letters of the e-mail), not the e-mail.
+   - Computers in a company **domain**: enter `DOMAIN\user`.
+   - Why an administrator: for administrators Windows reads the authorized keys from one shared file,
+     `C:\ProgramData\ssh\administrators_authorized_keys`. The panel's setup commands write the key
+     there, so it works for every administrator of that computer.
 
 **Linux**
 1. Install and start the SSH server:
@@ -333,9 +342,18 @@ Home Assistant.
    Set-Service -Name sshd -StartupType Automatic
    Start-Service sshd
    ```
-4. Utente da indicare in Home Assistant: il nome della cartella utente in `C:\Users\` (anche con un
-   account Microsoft). Usa un account **amministratore**: Windows ne legge la chiave da
-   `C:\ProgramData\ssh\administrators_authorized_keys`, dove la scrive il comando di installazione.
+4. **Quale utente indicare in Home Assistant** (campo *Utente* del dispositivo):
+   - Deve essere un account **amministratore** del computer. Lo verifichi in *Impostazioni → Account →
+     Informazioni personali*: sotto il nome c'è scritto "Amministratore".
+   - Inserisci il **nome utente breve di Windows**, non l'e-mail. Per trovarlo apri sul computer il
+     Prompt dei comandi e scrivi `whoami`: risponde per esempio `desktop-a1b2\mario`; il nome utente è la
+     parte dopo la barra, `mario`. È anche il nome della cartella dell'utente in `C:\Users\`.
+   - Se entri in Windows con un **account Microsoft** (un indirizzo e-mail) vale lo stesso: si usa il
+     nome breve mostrato da `whoami` (spesso le prime lettere dell'e-mail), non l'e-mail.
+   - Computer in un **dominio** aziendale: inserisci `DOMINIO\utente`.
+   - Perché un amministratore: per gli amministratori Windows legge le chiavi autorizzate da un unico
+     file comune, `C:\ProgramData\ssh\administrators_authorized_keys`. Il comando di installazione del
+     pannello scrive lì la chiave, quindi vale per tutti gli amministratori di quel computer.
 
 **Linux**
 1. Installa e avvia il server SSH:
