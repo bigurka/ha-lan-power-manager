@@ -1,13 +1,21 @@
 """Shutdown commands and the setup scripts shown in the panel for SSH devices.
 
 Home Assistant has one key pair of its own: the public half goes into the
-authorized keys of each PC. With "only shutdown" the key line carries a forced
-command (OpenSSH `restrict,command="..."`), so that key can do nothing else on
-the PC, whatever command the client asks for.
+authorized keys of each PC. With "only this action" the key line carries a forced
+command (OpenSSH `restrict,command="..."`) - the command of the device default
+action - so that key can do nothing else on the PC, whatever the client asks for.
 """
 from __future__ import annotations
 
-from .const import DEFAULT_SSH_COMMAND, SSH_OS_WINDOWS
+from .const import (
+    DEFAULT_SSH_COMMAND,
+    OFF_HIBERNATE,
+    OFF_SHUTDOWN,
+    OFF_SUSPEND,
+    SSH_OS_LINUX,
+    SSH_OS_MACOS,
+    SSH_OS_WINDOWS,
+)
 
 WINDOWS_KEYS_FILE = r"C:\ProgramData\ssh\administrators_authorized_keys"
 
@@ -24,12 +32,32 @@ def windows_shutdown_command(delay: int, message: str | None) -> str:
     return command
 
 
-def shutdown_command(ssh_os: str, custom: str | None, delay: int, message: str | None) -> str:
-    if custom:
-        return custom
+# Windows has no built-in "sleep now" command: SetSuspendState sleeps, but if
+# hibernation is enabled on the PC it hibernates instead (documented in the README).
+_WINDOWS_COMMANDS = {
+    OFF_HIBERNATE: "shutdown /h /f",
+    OFF_SUSPEND: "rundll32.exe powrprof.dll,SetSuspendState 0,1,0",
+}
+_LINUX_COMMANDS = {
+    OFF_SHUTDOWN: DEFAULT_SSH_COMMAND,
+    OFF_HIBERNATE: "sudo -n systemctl hibernate",
+    OFF_SUSPEND: "sudo -n systemctl suspend",
+}
+_MACOS_COMMANDS = {
+    OFF_SHUTDOWN: DEFAULT_SSH_COMMAND,
+    OFF_SUSPEND: "pmset sleepnow",
+}
+
+
+def off_command(ssh_os: str, action: str, delay: int, message: str | None) -> str | None:
+    """Built-in command for an action on a system, None if the system cannot do it."""
     if ssh_os == SSH_OS_WINDOWS:
-        return windows_shutdown_command(delay, message)
-    return DEFAULT_SSH_COMMAND
+        if action == OFF_SHUTDOWN:
+            return windows_shutdown_command(delay, message)
+        return _WINDOWS_COMMANDS[action]
+    if ssh_os == SSH_OS_MACOS:
+        return _MACOS_COMMANDS.get(action)
+    return _LINUX_COMMANDS[action]
 
 
 def authorized_keys_line(public_key: str, restricted: bool, command: str) -> str:
@@ -81,8 +109,17 @@ def windows_setup_script(public_key: str, line: str) -> str:
     )
 
 
-def linux_setup_script(public_key: str, line: str) -> str:
-    """Shell commands to run as the user Home Assistant will log in with."""
+# sudo rules for the built-in commands: shutdown everywhere, systemctl on Linux
+# (macOS sleeps with pmset, which needs no sudo).
+_SUDO_COMMANDS = {
+    SSH_OS_LINUX: "/sbin/shutdown, /usr/sbin/shutdown, /usr/bin/systemctl hibernate, "
+    "/usr/bin/systemctl suspend, /bin/systemctl hibernate, /bin/systemctl suspend",
+    SSH_OS_MACOS: "/sbin/shutdown",
+}
+
+
+def linux_setup_script(public_key: str, line: str, ssh_os: str = SSH_OS_LINUX) -> str:
+    """Shell commands to run as the user Home Assistant will log in with (Linux and macOS)."""
     key_body = public_key.split()[1]
     return "\n".join(
         [
@@ -92,8 +129,8 @@ def linux_setup_script(public_key: str, line: str) -> str:
             f"grep -v {_sh_literal(key_body)} ~/.ssh/authorized_keys > ~/.ssh/authorized_keys.tmp || true",
             f"echo {_sh_literal(line)} >> ~/.ssh/authorized_keys.tmp",
             "mv ~/.ssh/authorized_keys.tmp ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys",
-            "# Let the user shut down without a password",
-            'echo "$USER ALL=(root) NOPASSWD: /sbin/shutdown, /usr/sbin/shutdown" '
+            "# Let the user shut down (and on Linux hibernate / suspend) without a password",
+            f'echo "$USER ALL=(root) NOPASSWD: {_SUDO_COMMANDS[ssh_os]}" '
             "| sudo tee /etc/sudoers.d/home-assistant-shutdown > /dev/null",
             "sudo chmod 440 /etc/sudoers.d/home-assistant-shutdown",
         ]
@@ -104,4 +141,4 @@ def setup_script(ssh_os: str, public_key: str, restricted: bool, command: str) -
     line = authorized_keys_line(public_key, restricted, command)
     if ssh_os == SSH_OS_WINDOWS:
         return windows_setup_script(public_key, line)
-    return linux_setup_script(public_key, line)
+    return linux_setup_script(public_key, line, ssh_os)

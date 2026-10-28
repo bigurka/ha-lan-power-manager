@@ -11,12 +11,12 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import (
+    OFF_ACTIONS,
     POLICY_FORCE,
     POLICY_SKIP,
     SHUTDOWN_METHODS,
     SIGNAL_DEVICES_UPDATED,
-    SSH_OS_LINUX,
-    SSH_OS_WINDOWS,
+    SSH_OSES,
 )
 from .network import normalize_mac
 
@@ -66,9 +66,10 @@ _DEVICE_FIELDS = {
     vol.Optional("win_domain"): _optional_str,
     vol.Optional("ssh_port"): _OPTIONAL_INT,
     vol.Optional("ssh_command"): _optional_str,
-    vol.Optional("ssh_os"): vol.In([SSH_OS_WINDOWS, SSH_OS_LINUX]),
+    vol.Optional("ssh_os"): vol.In(SSH_OSES),
     vol.Optional("ssh_restricted"): bool,
     vol.Optional("forget_host_key"): bool,
+    vol.Optional("off_action"): vol.In(OFF_ACTIONS),
     vol.Optional("shutdown_delay"): _OPTIONAL_INT,
     vol.Optional("shutdown_message"): _optional_str,
     vol.Optional("user_policy"): vol.Any(None, "", vol.In([POLICY_FORCE, POLICY_SKIP])),
@@ -176,6 +177,8 @@ def ws_delete_device(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         vol.Required("type"): f"{PREFIX}/devices/power",
         vol.Required("device_id"): str,
         vol.Required("on"): bool,
+        # Off only: shutdown / hibernate / suspend instead of the device default.
+        vol.Optional("action"): vol.In(OFF_ACTIONS),
     }
 )
 @websocket_api.require_admin
@@ -186,7 +189,7 @@ async def ws_power(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         if msg["on"]:
             detail = await manager.async_turn_on(msg["device_id"])
         else:
-            detail = await manager.async_turn_off(msg["device_id"])
+            detail = await manager.async_turn_off(msg["device_id"], msg.get("action"))
     except HomeAssistantError as err:
         connection.send_error(msg["id"], "action_failed", str(err))
         return
@@ -196,9 +199,11 @@ async def ws_power(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{PREFIX}/ssh/setup",
-        vol.Optional("ssh_os"): vol.In([SSH_OS_WINDOWS, SSH_OS_LINUX]),
+        vol.Optional("ssh_os"): vol.In(SSH_OSES),
         vol.Optional("ssh_restricted"): bool,
         vol.Optional("ssh_command"): _optional_str,
+        vol.Optional("off_action"): vol.In(OFF_ACTIONS),
+        vol.Optional("name"): _optional_str,
         vol.Optional("shutdown_delay"): _OPTIONAL_INT,
         vol.Optional("shutdown_message"): _optional_str,
     }

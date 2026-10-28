@@ -46,6 +46,10 @@ remote shutdown). The rest of the inventory stays in the panel only.
     [Shutdown over SSH](#shutdown-over-ssh). On Windows it runs `shutdown` with delay and message, on
     Linux/macOS `sudo -n shutdown -h now` (customizable).
   - None (power on only).
+- **Off action per device: shutdown, hibernate or suspend.** It is what turning the switch off does and
+  it is part of the switch **entity_id and name**, so you see it at a glance: `switch.office_pc_hibernate`
+  "Office PC On / Hibernate". The other actions are always available as `lan_power_manager.shutdown`,
+  `lan_power_manager.hibernate` and `lan_power_manager.suspend` — see [Off actions](#off-actions).
 - Never shuts down the machine Home Assistant runs on.
 - `lan_power_manager_new_device` event when a never-seen device appears (not on the first scan), handy
   for notifications.
@@ -92,7 +96,7 @@ Home Assistant `.storage` folder; the public half is shown at the top of the pan
 key*).
 
 First enable the SSH server on the computer: see [Enabling the SSH server](#enabling-the-ssh-server).
-Then, for each computer, in the device dialog choose the **SSH** method, the system (Windows or Linux/macOS),
+Then, for each computer, in the device dialog choose the **SSH** method, the system (Windows, Linux or macOS),
 the user, and press **Setup commands**: the panel prepares the commands to paste on the computer.
 
 - **Windows**: paste them in PowerShell run as administrator. They install and start the Windows
@@ -104,10 +108,10 @@ the user, and press **Setup commands**: the panel prepares the commands to paste
 
 Then **Test connection**: Home Assistant logs in with the key and out again, without running anything.
 
-**Shutdown only.** With this option the key is installed on the computer as
-`restrict,command="<shutdown command>"`: whatever the client asks, the computer only runs the shutdown
-(no shell, no forwarding). Even if someone copied the key out of Home Assistant, all they could do is shut
-the computers down. Command, delay and message are written in the key on the computer: if you change them
+**This action only.** With this option the key is installed on the computer as
+`restrict,command="<command of the off action>"`: whatever the client asks, the computer only runs the
+device off action (no shell, no forwarding). Even if someone copied the key out of Home Assistant, all they
+could do is shut down / hibernate / suspend the computers. Action, command, delay and message are written in the key on the computer: if you change them
 in Home Assistant, run the setup commands again.
 
 **Computer identity.** At the first connection Home Assistant stores the computer's host key (its
@@ -164,7 +168,7 @@ Do this once per computer, then use **Setup commands** in the panel to install t
 1. *System Settings → General → Sharing* → turn on **Remote Login** (older versions: *System Preferences
    → Sharing → Remote Login*). Under "Allow access for" you can limit it to the user Home Assistant uses.
    From Terminal: `sudo systemsetup -setremotelogin on`.
-2. Run the panel's setup commands (choose *Linux / macOS*) in Terminal as that user.
+2. Run the panel's setup commands (choose *macOS*) in Terminal as that user.
 3. Note: most Macs only wake from **sleep** with Wake-on-LAN (*Wake for network access* in the energy
    settings), not from a full shutdown.
 
@@ -175,12 +179,47 @@ then **Test connection** in the panel.
 - The scan uses ARP/NetBIOS: Home Assistant must be **on the same network** as the computers (HA OS and
   containers with `network_mode: host` are fine). For subnets behind a router, enter the MAC by hand.
 
+<a id="off-actions"></a>
+
+## Off actions
+
+Each mapped device has an **off action**, chosen in the panel dialog (*Off action*):
+
+| Off action | Switch entity_id | Switch name | Windows | Linux | macOS |
+|---|---|---|---|---|---|
+| Shutdown | `switch.<name>_shutdown` | *<name> On / Shutdown* | `shutdown /s /f` with warning and message | `sudo -n shutdown -h now` | `sudo -n shutdown -h now` |
+| Hibernate | `switch.<name>_hibernate` | *<name> On / Hibernate* | `shutdown /h /f` | `sudo -n systemctl hibernate` | not available |
+| Suspend | `switch.<name>_suspend` | *<name> On / Suspend* | `rundll32 powrprof.dll,SetSuspendState` | `sudo -n systemctl suspend` | `pmset sleepnow` |
+
+- The entity_id is always in English, the name follows the Home Assistant language ("Accendi / Iberna").
+- **Changing the off action replaces the switch** (new entity_id): update the automations and dashboards
+  that use it. The Home Assistant device, with its area, stays the same.
+- The actions `lan_power_manager.shutdown`, `.hibernate`, `.suspend` (and `.wake`) work on any switch of
+  the integration, whatever its off action — e.g. a dashboard button that hibernates a "Shutdown" switch:
+  ```yaml
+  action: lan_power_manager.hibernate
+  target:
+    entity_id: switch.office_pc_shutdown
+  ```
+- **Windows**: hibernation must be enabled on the computer (`powercfg /h on` in an administrator prompt).
+  Suspend uses `SetSuspendState`: if hibernation is enabled, Windows may hibernate instead of sleeping.
+  Hibernate and suspend show no warning on screen (Windows does not allow it).
+- **Linux**: hibernation needs swap set up for it. The panel's setup commands add the sudo rule for
+  `systemctl hibernate` / `suspend` too.
+- **macOS** has no hibernate command (it decides by itself with `hibernatemode`).
+- **Wake-on-LAN** from hibernation works on many PCs but not all (BIOS / network card); from sleep it
+  almost always works. A sleeping computer normally stops answering on the network, so the switch goes off.
+- With an SSH key set to **"this action only"**, the computer accepts only the off action of the device:
+  the other actions are refused until you turn that option off (and install the key again).
+
 ## Entities, actions and events
 
-- `switch.<name>`: one entity per mapped device. Attributes: `ip`, `mac`, `hostname`, `online`,
-  `in_progress` (`turning_on` / `turning_off`), `shutdown_method`, `last_seen`, `last_action`,
+- `switch.<name>_<off action>`: one entity per mapped device. Attributes: `ip`, `mac`, `hostname`,
+  `online`, `in_progress` (`turning_on` / `turning_off`), `shutdown_method`, `off_action`, `last_seen`, `last_action`,
   `last_action_at`, `last_action_ok`.
 - Action `lan_power_manager.scan`: immediate scan (returns the counters when called with a response).
+- Actions `lan_power_manager.shutdown`, `.hibernate`, `.suspend`, `.wake` on the switches: see
+  [Off actions](#off-actions).
 - Event `lan_power_manager_new_device`: `device_id`, `ip`, `mac`, `hostname`, `vendor`.
 - Event `lan_power_manager_action_result`: `device_id`, `name`, `action` (`on`/`off`), `success`,
   `result` (language-independent outcome code, e.g. `wol_sent`, `turned_off`, `ssh_denied`), `detail`
@@ -248,6 +287,11 @@ pannello.
     [Spegnimento via SSH](#spegnimento-via-ssh). Su Windows esegue `shutdown` con preavviso e messaggio, su
     Linux/macOS `sudo -n shutdown -h now` (comando personalizzabile).
   - Nessuno (solo accensione).
+- **Azione allo spegnimento per dispositivo: spegni, iberna o sospendi.** È quello che fa lo switch quando
+  lo spegni, e fa parte del suo **entity_id e nome**, così si capisce al volo: `switch.pc_ufficio_hibernate`
+  "PC Ufficio Accendi / Iberna". Le altre azioni restano sempre disponibili come
+  `lan_power_manager.shutdown`, `lan_power_manager.hibernate` e `lan_power_manager.suspend` — vedi
+  [Azioni di spegnimento](#azioni-di-spegnimento).
 - Non spegne mai il computer su cui gira Home Assistant.
 - Evento `lan_power_manager_new_device` quando compare in rete un dispositivo mai visto (non alla prima
   scansione), utile per le notifiche.
@@ -296,7 +340,7 @@ cartella `.storage` di Home Assistant; la parte pubblica è visibile in cima al 
 Home Assistant*).
 
 Prima attiva il server SSH sul computer: vedi [Attivare il server SSH](#attivare-il-server-ssh).
-Poi, per ogni PC, nel dialogo del dispositivo scegli il metodo **SSH**, il sistema (Windows o Linux/macOS),
+Poi, per ogni PC, nel dialogo del dispositivo scegli il metodo **SSH**, il sistema (Windows, Linux o macOS),
 l'utente, e premi **Comando di installazione**: il pannello prepara i comandi da incollare sul PC.
 
 - **Windows**: incollali in PowerShell aperto come amministratore. Installano e avviano il *Server
@@ -308,10 +352,11 @@ l'utente, e premi **Comando di installazione**: il pannello prepara i comandi da
 
 Poi **Verifica connessione**: Home Assistant entra con la chiave ed esce subito, senza eseguire nulla.
 
-**Solo spegnimento.** Con questa opzione la chiave viene installata sul PC con
-`restrict,command="<comando di spegnimento>"`: qualunque cosa chieda chi la usa, il PC esegue solo lo
-spegnimento (niente shell, niente inoltri). Anche se qualcuno copiasse la chiave da Home Assistant,
-potrebbe solo spegnere i PC. Comando, preavviso e messaggio sono scritti nella chiave sul PC: se li cambi
+**Solo questa azione.** Con questa opzione la chiave viene installata sul PC con
+`restrict,command="<comando dell'azione allo spegnimento>"`: qualunque cosa chieda chi la usa, il PC esegue
+solo l'azione allo spegnimento del dispositivo (niente shell, niente inoltri). Anche se qualcuno copiasse la
+chiave da Home Assistant, potrebbe solo spegnere / ibernare / sospendere i PC. Azione, comando, preavviso e
+messaggio sono scritti nella chiave sul PC: se li cambi
 in Home Assistant, rilancia il comando di installazione.
 
 **Identità del PC.** Alla prima connessione Home Assistant memorizza la chiave di identità del PC (la sua
@@ -370,7 +415,7 @@ Home Assistant.
 1. *Impostazioni di Sistema → Generali → Condivisione* → attiva **Login remoto** (versioni precedenti:
    *Preferenze di Sistema → Condivisione → Login remoto*). In "Consenti l'accesso a" puoi limitarlo
    all'utente usato da Home Assistant. Da Terminale: `sudo systemsetup -setremotelogin on`.
-2. Esegui nel Terminale, con quell'utente, il comando di installazione del pannello (scegli *Linux / macOS*).
+2. Esegui nel Terminale, con quell'utente, il comando di installazione del pannello (scegli *macOS*).
 3. Nota: la maggior parte dei Mac si risveglia con il Wake-on-LAN solo dallo **stop** (*Riattiva per
    accesso alla rete* nelle impostazioni di energia), non da spento.
 
@@ -381,12 +426,50 @@ Home Assistant.
 - La scansione usa ARP/NetBIOS: Home Assistant deve stare **nella stessa rete** dei PC (HA OS e i container
   con `network_mode: host` vanno bene). Per le reti dietro un router il MAC si inserisce a mano.
 
+<a id="azioni-di-spegnimento"></a>
+
+## Azioni di spegnimento
+
+Ogni dispositivo mappato ha un'**azione allo spegnimento**, scelta nel dialogo del pannello (*Azione allo
+spegnimento*):
+
+| Azione | entity_id dello switch | Nome dello switch | Windows | Linux | macOS |
+|---|---|---|---|---|---|
+| Spegni | `switch.<nome>_shutdown` | *<nome> Accendi / Spegni* | `shutdown /s /f` con preavviso e messaggio | `sudo -n shutdown -h now` | `sudo -n shutdown -h now` |
+| Iberna | `switch.<nome>_hibernate` | *<nome> Accendi / Iberna* | `shutdown /h /f` | `sudo -n systemctl hibernate` | non disponibile |
+| Sospendi | `switch.<nome>_suspend` | *<nome> Accendi / Sospendi* | `rundll32 powrprof.dll,SetSuspendState` | `sudo -n systemctl suspend` | `pmset sleepnow` |
+
+- L'entity_id è sempre in inglese, il nome segue la lingua di Home Assistant.
+- **Cambiando l'azione lo switch viene sostituito** (nuovo entity_id): aggiorna automazioni e dashboard che
+  lo usano. Il dispositivo di Home Assistant, con la sua area, resta lo stesso.
+- Le azioni `lan_power_manager.shutdown`, `.hibernate`, `.suspend` (e `.wake`) funzionano su qualunque
+  switch dell'integrazione, qualunque sia la sua azione — per esempio un pulsante in dashboard che iberna
+  uno switch "Spegni":
+  ```yaml
+  action: lan_power_manager.hibernate
+  target:
+    entity_id: switch.pc_ufficio_shutdown
+  ```
+- **Windows**: l'ibernazione va attivata sul PC (`powercfg /h on` nel Prompt dei comandi come
+  amministratore). La sospensione usa `SetSuspendState`: se l'ibernazione è attiva, Windows può ibernare al
+  posto della sospensione. Ibernazione e sospensione non mostrano avvisi a video (Windows non lo permette).
+- **Linux**: l'ibernazione richiede una swap configurata per l'ibernazione. Il comando di installazione del
+  pannello aggiunge anche la regola sudo per `systemctl hibernate` / `suspend`.
+- **macOS** non ha un comando per ibernare (decide da solo con `hibernatemode`).
+- **Wake-on-LAN** dall'ibernazione funziona su molti PC ma non tutti (BIOS / scheda di rete); dalla
+  sospensione funziona quasi sempre. Un PC in sospensione di solito smette di rispondere in rete, quindi lo
+  switch va su spento.
+- Con la chiave SSH impostata su **"solo questa azione"** il PC accetta solo l'azione allo spegnimento del
+  dispositivo: le altre azioni vengono rifiutate finché non disattivi l'opzione (e reinstalli la chiave).
+
 ## Entità, azioni ed eventi
 
-- `switch.<nome>`: un'entità per dispositivo mappato. Attributi: `ip`, `mac`, `hostname`, `online`,
-  `in_progress` (`turning_on` / `turning_off`), `shutdown_method`, `last_seen`, `last_action`,
+- `switch.<nome>_<azione>`: un'entità per dispositivo mappato. Attributi: `ip`, `mac`, `hostname`,
+  `online`, `in_progress` (`turning_on` / `turning_off`), `shutdown_method`, `off_action`, `last_seen`, `last_action`,
   `last_action_at`, `last_action_ok`.
 - Azione `lan_power_manager.scan`: scansione immediata (restituisce i conteggi se chiamata con risposta).
+- Azioni `lan_power_manager.shutdown`, `.hibernate`, `.suspend`, `.wake` sugli switch: vedi
+  [Azioni di spegnimento](#azioni-di-spegnimento).
 - Evento `lan_power_manager_new_device`: `device_id`, `ip`, `mac`, `hostname`, `vendor`.
 - Evento `lan_power_manager_action_result`: `device_id`, `name`, `action` (`on`/`off`), `success`, `result`
   (codice dell'esito, uguale in tutte le lingue, es. `wol_sent`, `turned_off`, `ssh_denied`), `detail`

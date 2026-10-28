@@ -6,6 +6,7 @@ mapped devices fresh, and wake/shutdown are the switch actions.
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import timedelta
 import ipaddress
 import logging
@@ -36,8 +37,11 @@ from .const import (
     DEFAULT_SHUTDOWN_DELAY,
     DEFAULT_SSH_COMMAND,
     DEFAULT_SSH_PORT,
+    OFF_HIBERNATE,
+    OFF_SHUTDOWN,
     SSH_KEY_COMMENT,
     SSH_KEY_STORAGE_KEY,
+    SSH_OS_MACOS,
     SSH_OS_WINDOWS,
     STORAGE_VERSION,
     DOMAIN,
@@ -47,10 +51,12 @@ from .const import (
     POLICY_FORCE,
     POLICY_SKIP,
     SHUTDOWN_NONE,
+    SHUTDOWN_SSH,
     SHUTDOWN_TIMEOUT,
     SHUTDOWN_WINDOWS,
     SIGNAL_DEVICE_MAPPED,
     SIGNAL_DEVICE_UNMAPPED,
+    SIGNAL_OFF_ACTION_CHANGED,
     SIGNAL_DEVICES_UPDATED,
     WAKE_TIMEOUT,
 )
@@ -75,9 +81,9 @@ from .power import (
     async_ssh_shutdown,
     generate_client_key,
     public_key_of,
-    windows_shutdown,
+    windows_power_off,
 )
-from .ssh_setup import shutdown_command, setup_script
+from .ssh_setup import off_command, setup_script
 from .storage import Device, DeviceStore
 
 _LOGGER = logging.getLogger(__name__)
@@ -325,9 +331,13 @@ class NetworkManager:
         self._start_pending(device, True, WAKE_TIMEOUT)
         return detail
 
-    async def async_turn_off(self, device_id: str) -> str:
-        """Ask the computer to shut down. Returns what happened, for the panel."""
+    async def async_turn_off(self, device_id: str, action: str | None = None) -> str:
+        """Shut down, hibernate or suspend the computer (default: the device off action).
+
+        Returns what happened, for the panel.
+        """
         device = self._get(device_id)
+        action = action or device.off_action
         method = device.shutdown_method
         if method == SHUTDOWN_NONE:
             raise self._error("no_shutdown_method", name=device.label)
@@ -340,22 +350,53 @@ class NetworkManager:
             self._set_online(device, False)
             return self._record(device, "off", True, Message("already_off"))
 
+        action_name = Message(f"action_{action}")
         try:
+            command = self.off_command(device, action)
             if method == SHUTDOWN_WINDOWS:
-                outcome = await self._async_windows_shutdown(device)
+                user = await self._async_windows_power_off(device, command)
+                warned = action == OFF_SHUTDOWN and self._delay(device) > 0
+                outcome = Message(
+                    "wmi_sent",
+                    {
+                        "action": action_name,
+                        "when": Message("in_seconds", {"delay": self._delay(device)}) if warned else "",
+                        "user": Message("user_logged_on", {"user": user}) if user else "",
+                    },
+                )
             else:
-                result = await async_ssh_shutdown(self._ssh_target(device), self.ssh_command(device))
+                if device.ssh_restricted and action != device.off_action:
+                    raise ShutdownError(
+                        "ssh_restricted_other",
+                        name=device.label,
+                        default=Message(f"action_{device.off_action}"),
+                        action=action_name,
+                    )
+                result = await async_ssh_shutdown(self._ssh_target(device), command)
                 self._remember_host_key(device, result)
-                outcome = result.detail
+                outcome = Message(result.detail.key, {"action": action_name})
         except ShutdownError as err:
             raise HomeAssistantError(self._record(device, "off", False, err.message)) from err
 
         detail = self._record(device, "off", True, outcome)
-        delay = self._delay(device) if method == SHUTDOWN_WINDOWS or device.ssh_os == SSH_OS_WINDOWS else 0
-        self._start_pending(device, False, SHUTDOWN_TIMEOUT + delay)
+        warning = self._delay(device) if action == OFF_SHUTDOWN and self._target_os(device) == SSH_OS_WINDOWS else 0
+        self._start_pending(device, False, SHUTDOWN_TIMEOUT + warning, action)
         return detail
 
-    async def _async_windows_shutdown(self, device: Device) -> Message:
+    def _target_os(self, device: Device) -> str:
+        return SSH_OS_WINDOWS if device.shutdown_method == SHUTDOWN_WINDOWS else device.ssh_os
+
+    def off_command(self, device: Device, action: str) -> str:
+        """The command that performs an off action on this device."""
+        # A custom SSH command replaces the command of the device default action only.
+        if device.shutdown_method == SHUTDOWN_SSH and device.ssh_command and action == device.off_action:
+            return device.ssh_command
+        command = off_command(self._target_os(device), action, self._delay(device), self._message(device))
+        if command is None:
+            raise ShutdownError("action_not_supported", name=device.label, action=Message(f"action_{action}"))
+        return command
+
+    async def _async_windows_power_off(self, device: Device, command: str) -> str | None:
         username = device.username or self.setting(CONF_USERNAME, "")
         if not username:
             raise ShutdownError("missing_windows_credentials")
@@ -365,9 +406,8 @@ class NetworkManager:
             domain=device.win_domain or self.setting(CONF_WIN_DOMAIN, ""),
         )
         policy = device.user_policy or self.setting(CONF_USER_POLICY, POLICY_FORCE)
-        message = self._message(device)
         return await self.hass.async_add_executor_job(
-            windows_shutdown, device.ip, credentials, self._delay(device), message, policy == POLICY_SKIP
+            windows_power_off, device.ip, credentials, command, policy == POLICY_SKIP
         )
 
     # ---- SSH ----
@@ -401,8 +441,6 @@ class NetworkManager:
     def _message(self, device: Device) -> str:
         return device.shutdown_message or self.default_message
 
-    def ssh_command(self, device: Device) -> str:
-        return shutdown_command(device.ssh_os, device.ssh_command, self._delay(device), self._message(device))
 
     def _remember_host_key(self, device: Device, result: SshResult) -> None:
         if result.learned_host_key and not device.ssh_host_key:
@@ -426,13 +464,19 @@ class NetworkManager:
     def ssh_setup(self, params: dict[str, Any]) -> dict[str, str]:
         """Public key and setup script for the values currently in the panel dialog."""
         probe = Device(
+            name=params.get("name") or None,
+            shutdown_method=SHUTDOWN_SSH,
             ssh_os=params.get("ssh_os") or SSH_OS_WINDOWS,
             ssh_command=params.get("ssh_command") or None,
+            off_action=params.get("off_action") or OFF_SHUTDOWN,
             shutdown_delay=params.get("shutdown_delay"),
             shutdown_message=params.get("shutdown_message") or None,
         )
         restricted = bool(params.get("ssh_restricted"))
-        command = self.ssh_command(probe)
+        try:
+            command = self.off_command(probe, probe.off_action)
+        except ShutdownError as err:
+            raise HomeAssistantError(err.message.text(self.language)) from err
         return {
             "public_key": self.ssh_public_key,
             "fingerprint": self.ssh_key_fingerprint,
@@ -453,16 +497,16 @@ class NetworkManager:
         adapters = await network.async_get_adapters(self.hass)
         return any(a["address"] == ip for adapter in adapters for a in adapter["ipv4"])
 
-    def _start_pending(self, device: Device, state: bool, timeout: int) -> None:
+    def _start_pending(self, device: Device, state: bool, timeout: int, action: str | None = None) -> None:
         self.pending[device.id] = (state, time.monotonic() + timeout)
         self.coordinator.async_update_listeners()
         task = self.entry.async_create_background_task(
-            self.hass, self._async_follow(device.id, state, timeout), f"{DOMAIN} follow {device.id}"
+            self.hass, self._async_follow(device.id, state, timeout, action), f"{DOMAIN} follow {device.id}"
         )
         self._actions.add(task)
         task.add_done_callback(self._actions.discard)
 
-    async def _async_follow(self, device_id: str, state: bool, timeout: int) -> None:
+    async def _async_follow(self, device_id: str, state: bool, timeout: int, action: str | None) -> None:
         """Poll quickly until the PC reaches the requested state, then report the outcome."""
         deadline = time.monotonic() + timeout
         reached = False
@@ -484,8 +528,10 @@ class NetworkManager:
         self.coordinator.async_set_updated_data({d.id: d.online for d in self.store.mapped()})
         if reached:
             outcome = Message("turned_on" if state else "turned_off")
+        elif state:
+            outcome = Message("wake_failed")
         else:
-            outcome = Message("wake_failed" if state else "shutdown_failed")
+            outcome = Message("off_failed", {"action": Message(f"action_{action or OFF_SHUTDOWN}")})
         self._record(device, "on" if state else "off", reached, outcome)
 
     @property
@@ -537,13 +583,20 @@ class NetworkManager:
         mac = changes.get("mac", existing.mac if existing else None)
         if mac and (other := self.store.by_mac(mac)) is not None and other is not existing:
             raise self._error("mac_in_use", mac=mac, other=other.label)
-        device = existing or self.store.add(Device(first_seen=dt_util.utcnow().isoformat(), new=False))
-        was_mapped = device.mapped
+        clear_password = changes.pop("clear_password", False)
+        forget_host_key = changes.pop("forget_host_key", False)
         if "password" in changes and changes["password"] in (None, ""):
             changes.pop("password")  # blank = keep the stored one
-        if changes.pop("clear_password", False):
+        result = replace(existing or Device(), **changes)
+        if self._target_os(result) == SSH_OS_MACOS and result.off_action == OFF_HIBERNATE:
+            raise self._error("action_not_supported", name=result.label, action=Message("action_hibernate"))
+
+        device = existing or self.store.add(Device(first_seen=dt_util.utcnow().isoformat(), new=False))
+        was_mapped = device.mapped
+        old_action = device.off_action
+        if clear_password:
             device.password = None
-        if changes.pop("forget_host_key", False):
+        if forget_host_key:
             device.ssh_host_key = device.ssh_host_fingerprint = None
         for key, value in changes.items():
             setattr(device, key, value)
@@ -560,6 +613,9 @@ class NetworkManager:
         elif was_mapped and not device.mapped:
             self.pending.pop(device.id, None)
             async_dispatcher_send(self.hass, SIGNAL_DEVICE_UNMAPPED, device.id)
+        elif device.mapped and device.off_action != old_action:
+            # The off action is part of the switch entity_id: replace the switch.
+            async_dispatcher_send(self.hass, SIGNAL_OFF_ACTION_CHANGED, device.id, old_action)
         else:
             self.coordinator.async_update_listeners()
         self._notify()

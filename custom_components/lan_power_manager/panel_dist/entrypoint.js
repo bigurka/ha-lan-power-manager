@@ -38,7 +38,15 @@ const T = {
     delete: "Elimina",
     power_on: "Accendi",
     power_off: "Spegni",
-    confirm_off: "Spegnere {name}?",
+    confirm_off: "{action} {name}?",
+    off_shutdown: "Spegni",
+    off_hibernate: "Iberna",
+    off_suspend: "Sospendi",
+    d_off_action: "Azione allo spegnimento",
+    d_off_action_hint: "È l'azione dello switch (spegnerlo esegue questa) e fa parte del suo entity_id e del nome, es. switch.pc_ufficio_hibernate \"Accendi / Iberna\". Se la cambi lo switch viene sostituito: aggiorna le automazioni che lo usano. Le altre azioni restano disponibili come lan_power_manager.shutdown / hibernate / suspend.",
+    d_off_hibernate_windows: "Windows: l'ibernazione va attivata sul PC con powercfg /h on (prompt come amministratore). Niente avviso a video.",
+    d_off_suspend_windows: "Windows: se sul PC è attiva l'ibernazione, al posto della sospensione può ibernare. Niente avviso a video.",
+    d_off_hibernate_linux: "Linux: serve una swap configurata per l'ibernazione.",
     confirm_delete: "Eliminare {name} dall'inventario?",
     empty: "Nessun dispositivo. Avvia una scansione o aggiungine uno a mano.",
     d_title_map: "Mappa dispositivo",
@@ -65,7 +73,7 @@ const T = {
     d_password_keep: "vuota = invariata",
     d_password_global: "vuota = quella delle opzioni",
     d_ssh_port: "Porta SSH",
-    d_ssh_command: "Comando",
+    d_ssh_command: "Comando personalizzato (azione allo spegnimento)",
     d_delay: "Preavviso (secondi)",
     d_message: "Messaggio di avviso",
     d_policy: "Se c'è un utente collegato",
@@ -84,9 +92,10 @@ const T = {
     copied: "Copiato.",
     d_ssh_os: "Sistema del PC",
     os_windows: "Windows",
-    os_linux: "Linux / macOS",
-    d_ssh_restricted: "Solo spegnimento (con questa chiave il PC accetta solo lo spegnimento)",
-    d_ssh_restricted_hint: "Comando, preavviso e messaggio vengono scritti nella chiave sul PC: se li cambi, reinstalla la chiave.",
+    os_linux: "Linux",
+    os_macos: "macOS",
+    d_ssh_restricted: "Solo questa azione (con questa chiave il PC accetta solo l'azione allo spegnimento)",
+    d_ssh_restricted_hint: "Azione, comando, preavviso e messaggio vengono scritti nella chiave sul PC: se li cambi, reinstalla la chiave. Le altre azioni (es. lan_power_manager.hibernate su uno switch \"Spegni\") non saranno possibili.",
     d_identity: "Identità del PC",
     d_identity_none: "non ancora memorizzata: lo sarà alla prima connessione",
     d_forget: "Dimentica identità (PC reinstallato o sostituito)",
@@ -96,7 +105,7 @@ const T = {
     d_setup_windows: "Sul PC apri PowerShell come amministratore e incolla questi comandi. Installano il server SSH, aprono la porta 22 e autorizzano la chiave di Home Assistant per gli account amministratori.",
     d_setup_linux: "Esegui questi comandi sul PC con l'utente usato da Home Assistant (serve sudo per il permesso di spegnimento).",
     d_password_key: "facoltativa: si usa la chiave",
-    d_cmd_windows: "predefinito: shutdown con preavviso e messaggio",
+    d_cmd_windows: "predefinito: secondo l'azione allo spegnimento",
   },
   en: {
     title: "LAN Power Manager",
@@ -134,7 +143,15 @@ const T = {
     delete: "Delete",
     power_on: "Turn on",
     power_off: "Turn off",
-    confirm_off: "Turn off {name}?",
+    confirm_off: "{action} {name}?",
+    off_shutdown: "Shut down",
+    off_hibernate: "Hibernate",
+    off_suspend: "Suspend",
+    d_off_action: "Off action",
+    d_off_action_hint: "What turning the switch off does; it is part of the switch entity_id and name, e.g. switch.office_pc_hibernate \"On / Hibernate\". Changing it replaces the switch: update the automations that use it. The other actions stay available as lan_power_manager.shutdown / hibernate / suspend.",
+    d_off_hibernate_windows: "Windows: enable hibernation on the computer with powercfg /h on (administrator prompt). No on-screen warning.",
+    d_off_suspend_windows: "Windows: if hibernation is enabled on the computer it may hibernate instead of sleeping. No on-screen warning.",
+    d_off_hibernate_linux: "Linux: needs swap set up for hibernation.",
     confirm_delete: "Delete {name} from the inventory?",
     empty: "No devices. Start a scan or add one by hand.",
     d_title_map: "Map device",
@@ -161,7 +178,7 @@ const T = {
     d_password_keep: "empty = unchanged",
     d_password_global: "empty = the one in the options",
     d_ssh_port: "SSH port",
-    d_ssh_command: "Command",
+    d_ssh_command: "Custom command (off action)",
     d_delay: "Warning (seconds)",
     d_message: "Warning message",
     d_policy: "If a user is logged on",
@@ -180,9 +197,10 @@ const T = {
     copied: "Copied.",
     d_ssh_os: "Computer system",
     os_windows: "Windows",
-    os_linux: "Linux / macOS",
-    d_ssh_restricted: "Shutdown only (with this key the computer accepts nothing but the shutdown)",
-    d_ssh_restricted_hint: "Command, warning and message are written in the key on the computer: if you change them, install the key again.",
+    os_linux: "Linux",
+    os_macos: "macOS",
+    d_ssh_restricted: "This action only (with this key the computer accepts nothing but the off action)",
+    d_ssh_restricted_hint: "Action, command, warning and message are written in the key on the computer: if you change them, install the key again. The other actions (e.g. lan_power_manager.hibernate on a \"Shut down\" switch) will not be possible.",
     d_identity: "Computer identity",
     d_identity_none: "not stored yet: it will be at the first connection",
     d_forget: "Forget identity (computer reinstalled or replaced)",
@@ -192,7 +210,7 @@ const T = {
     d_setup_windows: "On the computer open PowerShell as administrator and paste these commands. They install the SSH server, open port 22 and authorize the Home Assistant key for administrator accounts.",
     d_setup_linux: "Run these commands on the computer as the user Home Assistant logs in with (sudo is needed for the shutdown permission).",
     d_password_key: "optional: the key is used",
-    d_cmd_windows: "default: shutdown with warning and message",
+    d_cmd_windows: "default: depends on the off action",
   },
 };
 
@@ -540,7 +558,7 @@ class LanPowerManagerPanel extends HTMLElement {
     const actions = [];
     if (d.mapped) {
       actions.push(`<button class="btn small ok" data-act="on" data-id="${id}" ${busy || d.online || !d.wol_enabled || !d.mac ? "disabled" : ""}>${esc(this._t("power_on"))}</button>`);
-      actions.push(`<button class="btn small danger" data-act="off" data-id="${id}" ${busy || !d.online || d.shutdown_method === "none" ? "disabled" : ""}>${esc(this._t("power_off"))}</button>`);
+      actions.push(`<button class="btn small danger" data-act="off" data-id="${id}" ${busy || !d.online || d.shutdown_method === "none" ? "disabled" : ""}>${esc(this._t(`off_${d.off_action || "shutdown"}`))}</button>`);
       actions.push(`<button class="btn small flat" data-act="edit" data-id="${id}">${esc(this._t("edit"))}</button>`);
     } else {
       actions.push(`<button class="btn small" data-act="edit" data-id="${id}">${esc(this._t("map"))}</button>`);
@@ -584,7 +602,7 @@ class LanPowerManagerPanel extends HTMLElement {
         this._run(this._ws({ type: "devices/power", device_id: d.id, on: true }));
         break;
       case "off":
-        if (confirm(this._t("confirm_off", { name: d.label }))) {
+        if (confirm(this._t("confirm_off", { name: d.label, action: this._t(`off_${d.off_action || "shutdown"}`) }))) {
           this._run(this._ws({ type: "devices/power", device_id: d.id, on: false }));
         }
         break;
@@ -627,6 +645,15 @@ class LanPowerManagerPanel extends HTMLElement {
               </select>
             </label>
             <div data-for="windows ssh">
+              <label class="f">${esc(this._t("d_off_action"))}
+                <select name="off_action">
+                  ${["shutdown", "hibernate", "suspend"].map((a) => `<option value="${a}" ${(dev.off_action || "shutdown") === a ? "selected" : ""}>${esc(this._t(`off_${a}`))}</option>`).join("")}
+                </select>
+              </label>
+              <div class="hint">${esc(this._t("d_off_action_hint"))}</div>
+              <div class="hint" id="off_hint" hidden></div>
+            </div>
+            <div data-for="windows ssh">
               <div class="row">
                 <label class="f">${esc(this._t("d_username"))}<input name="username" value="${val(dev.username)}" placeholder="${val(def(defaults.username))}" autocomplete="off"></label>
                 <label class="f">${esc(this._t("d_password"))}<input type="password" name="password" autocomplete="new-password" placeholder="${esc(dev.has_password ? this._t("d_password_keep") : this._t("d_password_global"))}"></label>
@@ -649,14 +676,14 @@ class LanPowerManagerPanel extends HTMLElement {
               <div class="row">
                 <label class="f">${esc(this._t("d_ssh_os"))}
                   <select name="ssh_os">
-                    ${["windows", "linux"].map((o) => `<option value="${o}" ${(dev.ssh_os || "windows") === o ? "selected" : ""}>${esc(this._t(`os_${o}`))}</option>`).join("")}
+                    ${["windows", "linux", "macos"].map((o) => `<option value="${o}" ${(dev.ssh_os || "windows") === o ? "selected" : ""}>${esc(this._t(`os_${o}`))}</option>`).join("")}
                   </select>
                 </label>
                 <label class="f">${esc(this._t("d_ssh_port"))}<input type="number" min="1" max="65535" name="ssh_port" value="${val(dev.ssh_port)}" placeholder="${val(defaults.ssh_port)}"></label>
               </div>
               <label class="f">${esc(this._t("d_ssh_command"))}<input name="ssh_command" value="${val(dev.ssh_command)}"></label>
             </div>
-            <div data-for="windows ssh" data-os="windows">
+            <div data-for="windows ssh" data-os="windows" id="warnbox">
               <div class="row">
                 <label class="f">${esc(this._t("d_delay"))}<input type="number" min="0" max="600" name="shutdown_delay" value="${val(dev.shutdown_delay)}" placeholder="${val(def(defaults.shutdown_delay))}"></label>
                 <label class="f">${esc(this._t("d_message"))}<input name="shutdown_message" value="${val(dev.shutdown_message)}" placeholder="${val(defaults.shutdown_message)}"></label>
@@ -699,14 +726,25 @@ class LanPowerManagerPanel extends HTMLElement {
       form.password.placeholder = m === "ssh" ? this._t("d_password_key")
         : dev.has_password ? this._t("d_password_keep") : this._t("d_password_global");
       form.ssh_command.placeholder = os === "windows" ? this._t("d_cmd_windows") : this._t("d_default", { value: defaults.ssh_command });
+      const target = m === "windows" ? "windows" : os;
+      const action = form.off_action.value;
+      const offHint = dialog.querySelector("#off_hint");
+      const hintKey = { "windows/hibernate": "d_off_hibernate_windows", "windows/suspend": "d_off_suspend_windows", "linux/hibernate": "d_off_hibernate_linux" }[`${target}/${action}`];
+      offHint.hidden = !hintKey;
+      // Warning delay and message exist only for the Windows shutdown.
+      if (action !== "shutdown") dialog.querySelector("#warnbox").hidden = true;
+      offHint.textContent = hintKey ? this._t(hintKey) : "";
       setupBox.hidden = true; // the script depends on these values: build it again on request
     };
     form.shutdown_method.addEventListener("change", syncMethod);
     form.ssh_os.addEventListener("change", syncMethod);
     form.ssh_restricted.addEventListener("change", syncMethod);
+    form.off_action.addEventListener("change", syncMethod);
     const sshParams = () => ({
       ssh_os: form.ssh_os.value,
       ssh_restricted: form.ssh_restricted.checked,
+      off_action: form.off_action.value,
+      name: form.name.value,
       ssh_command: form.ssh_command.value,
       shutdown_delay: form.shutdown_delay.value,
       shutdown_message: form.shutdown_message.value,
@@ -760,6 +798,7 @@ class LanPowerManagerPanel extends HTMLElement {
         ssh_port: f.ssh_port.value,
         ssh_command: f.ssh_command.value,
         ssh_os: f.ssh_os.value,
+        off_action: f.off_action.value,
         ssh_restricted: f.ssh_restricted.checked,
       };
       if (f.forget_host_key?.checked) msg.forget_host_key = true;

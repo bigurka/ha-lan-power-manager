@@ -62,9 +62,23 @@ MESSAGES: dict[str, dict[str, str]] = {
         "it": "Non risponde dopo l'invio del pacchetto Wake-on-LAN: controlla il WOL nel BIOS/scheda di rete "
         "e, se il PC è in un'altra rete, l'inoltro dei broadcast sul router.",
     },
-    "shutdown_failed": {
-        "en": "The computer still answers after the shutdown command.",
-        "it": "Il PC risponde ancora dopo il comando di spegnimento.",
+    "off_failed": {
+        "en": "The computer still answers after the {action} command.",
+        "it": "Il PC risponde ancora dopo il comando di {action}.",
+    },
+    # Names of the off actions, used inside other messages.
+    "action_shutdown": {"en": "shutdown", "it": "spegnimento"},
+    "action_hibernate": {"en": "hibernation", "it": "ibernazione"},
+    "action_suspend": {"en": "suspend", "it": "sospensione"},
+    "action_not_supported": {
+        "en": "{name}: {action} is not available on macOS.",
+        "it": "{name}: {action} non disponibile su macOS.",
+    },
+    "ssh_restricted_other": {
+        "en": "{name}: the key installed on the computer only allows the \"{default}\" action, \"{action}\" "
+        "is not possible. Turn off \"this action only\" (or change the off action) and install the key again.",
+        "it": "{name}: la chiave installata sul PC permette solo l'azione \"{default}\", \"{action}\" non è "
+        "possibile. Disattiva \"solo questa azione\" (o cambia l'azione allo spegnimento) e reinstalla la chiave.",
     },
     "missing_windows_credentials": {
         "en": "Windows credentials missing: set them in the options or on the device.",
@@ -95,13 +109,11 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "wmi_error": {"en": "WMI error on {ip}: {error}", "it": "Errore WMI su {ip}: {error}"},
     "wmi_sent": {
-        "en": "Shutdown requested over WMI in {delay} s.",
-        "it": "Spegnimento richiesto via WMI tra {delay} s.",
+        "en": "Requested over WMI: {action}{when}{user}.",
+        "it": "Richiesto via WMI: {action}{when}{user}.",
     },
-    "wmi_sent_user": {
-        "en": "Shutdown requested over WMI in {delay} s, user logged on: {user}.",
-        "it": "Spegnimento richiesto via WMI tra {delay} s, utente collegato {user}.",
-    },
+    "in_seconds": {"en": " in {delay} s", "it": " tra {delay} s"},
+    "user_logged_on": {"en": ", user logged on: {user}", "it": ", utente collegato: {user}"},
     # SSH
     "ssh_no_host_key": {
         "en": "SSH to {ip}: the computer presented no identity key.",
@@ -137,12 +149,12 @@ MESSAGES: dict[str, dict[str, str]] = {
         "it": "Accesso SSH riuscito con la chiave di Home Assistant. Identità del PC memorizzata ({fingerprint}).",
     },
     "ssh_sent": {
-        "en": "Shutdown command sent over SSH.",
-        "it": "Comando di spegnimento inviato via SSH.",
+        "en": "Sent over SSH: {action}.",
+        "it": "Inviato via SSH: {action}.",
     },
     "ssh_sent_closed": {
-        "en": "Shutdown command sent over SSH (connection closed by the computer).",
-        "it": "Comando di spegnimento inviato via SSH (connessione chiusa dal PC).",
+        "en": "Sent over SSH: {action} (connection closed by the computer).",
+        "it": "Inviato via SSH: {action} (connessione chiusa dal PC).",
     },
 }
 
@@ -161,7 +173,9 @@ class Message:
 def translate(language: str, key: str, **placeholders: Any) -> str:
     texts = MESSAGES[key]
     template = texts["it"] if (language or "").lower().startswith("it") else texts["en"]
-    return template.format(**placeholders)
+    # A placeholder can itself be a Message (e.g. the name of an action).
+    values = {k: v.text(language) if isinstance(v, Message) else v for k, v in placeholders.items()}
+    return template.format(**values)
 
 
 def ha_language(hass: HomeAssistant) -> str:

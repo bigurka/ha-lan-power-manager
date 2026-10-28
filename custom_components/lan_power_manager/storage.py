@@ -13,7 +13,7 @@ import uuid
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import SHUTDOWN_NONE, SSH_OS_WINDOWS, STORAGE_KEY, STORAGE_VERSION
+from .const import OFF_SHUTDOWN, SHUTDOWN_NONE, SSH_OS_WINDOWS, STORAGE_KEY, STORAGE_VERSION
 from .network import is_random_mac
 
 _SAVE_DELAY = 5
@@ -43,6 +43,8 @@ class Device:
     wol_enabled: bool = True
     broadcast: str | None = None
     shutdown_method: str = SHUTDOWN_NONE
+    # What the switch does when turned off: shutdown, hibernate or suspend.
+    off_action: str = OFF_SHUTDOWN
     # Empty = use the credentials of the integration options.
     username: str | None = None
     password: str | None = None

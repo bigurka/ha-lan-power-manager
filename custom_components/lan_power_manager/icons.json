@@ -2,6 +2,18 @@
   "services": {
     "scan": {
       "service": "mdi:lan-pending"
+    },
+    "shutdown": {
+      "service": "mdi:power"
+    },
+    "hibernate": {
+      "service": "mdi:power-sleep"
+    },
+    "suspend": {
+      "service": "mdi:sleep"
+    },
+    "wake": {
+      "service": "mdi:power-on"
     }
   }
 }

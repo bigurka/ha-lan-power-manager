@@ -12,7 +12,6 @@ from dataclasses import dataclass
 import logging
 
 from .messages import LocalizedError, Message
-from .ssh_setup import windows_shutdown_command
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -32,14 +31,16 @@ class WindowsCredentials:
     domain: str = ""
 
 
-def windows_shutdown(
+def windows_power_off(
     ip: str,
     credentials: WindowsCredentials,
-    delay: int,
-    message: str,
+    command: str,
     skip_if_user: bool,
-) -> Message:
-    """Blocking (run in executor). Returns what happened."""
+) -> str | None:
+    """Blocking (run in executor): run the shutdown/hibernate/suspend command over WMI.
+
+    Returns the user logged on at the console, if any.
+    """
     # Imported here: impacket is big and only needed when a PC is actually switched off.
     from impacket.dcerpc.v5.dcom import wmi  # noqa: PLC0415
     from impacket.dcerpc.v5.dcomrt import DCOMConnection  # noqa: PLC0415
@@ -64,7 +65,6 @@ def windows_shutdown(
         if user and skip_if_user:
             raise UserLoggedOnError("wmi_user_logged_on", user=user)
 
-        command = windows_shutdown_command(delay, message)
         process, _ = services.GetObject("Win32_Process")
         result = process.Create(command, "C:\\", None)
         code = _return_value(result)
@@ -82,9 +82,7 @@ def windows_shutdown(
             except Exception:  # noqa: BLE001
                 pass
 
-    if user:
-        return Message("wmi_sent_user", {"delay": delay, "user": user})
-    return Message("wmi_sent", {"delay": delay})
+    return user
 
 
 def _console_user(services) -> str | None:
