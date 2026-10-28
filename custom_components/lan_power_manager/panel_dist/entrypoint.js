@@ -43,7 +43,7 @@ const T = {
     off_hibernate: "Iberna",
     off_suspend: "Sospendi",
     d_off_action: "Azione allo spegnimento",
-    d_off_action_hint: "È l'azione dello switch (spegnerlo esegue questa) e fa parte del suo entity_id e del nome, es. switch.pc_ufficio_hibernate \"Accendi / Iberna\". Se la cambi lo switch viene sostituito: aggiorna le automazioni che lo usano. Le altre azioni restano disponibili come lan_power_manager.shutdown / hibernate / suspend.",
+    d_off_action_hint: "È quello che fa lo switch quando lo spegni, e compare nel suo nome (\"Accendi / Iberna\"); l'entity_id switch.<nome> non cambia. Ogni azione ha comunque il suo pulsante.",
     d_off_hibernate_windows: "Windows: l'ibernazione va attivata sul PC con powercfg /h on (prompt come amministratore). Niente avviso a video.",
     d_off_suspend_windows: "Windows: se sul PC è attiva l'ibernazione, al posto della sospensione può ibernare. Niente avviso a video.",
     d_off_hibernate_linux: "Linux: serve una swap configurata per l'ibernazione.",
@@ -56,7 +56,15 @@ const T = {
     d_name: "Nome",
     d_mac: "MAC",
     d_ip: "Indirizzo IP",
-    d_mapped: "Mappato (crea lo switch in Home Assistant)",
+    d_entities: "Entità in Home Assistant",
+    e_none: "Nessuna (non mappato)",
+    e_presence: "Solo presenza",
+    e_control: "Solo controllo",
+    e_both: "Presenza e controllo",
+    d_entities_hint: "Presenza: device_tracker.<nome> (in casa / fuori casa). Controllo: switch.<nome> (accende col Wake-on-LAN, spegne con l'azione allo spegnimento) e i pulsanti button.<nome>_wol / _shutdown / _hibernate / _suspend, solo quelli possibili per questo dispositivo.",
+    b_presence: "Presenza",
+    b_control: "Controllo",
+    b_both: "Presenza + controllo",
     d_power_on: "Accensione",
     d_wol: "Wake-on-LAN abilitato",
     d_broadcast: "Broadcast WOL (facoltativo, per reti dietro un router)",
@@ -148,7 +156,7 @@ const T = {
     off_hibernate: "Hibernate",
     off_suspend: "Suspend",
     d_off_action: "Off action",
-    d_off_action_hint: "What turning the switch off does; it is part of the switch entity_id and name, e.g. switch.office_pc_hibernate \"On / Hibernate\". Changing it replaces the switch: update the automations that use it. The other actions stay available as lan_power_manager.shutdown / hibernate / suspend.",
+    d_off_action_hint: "What the switch does when turned off; it shows in its name (\"On / Hibernate\") while the entity_id switch.<name> does not change. Each action also has its own button.",
     d_off_hibernate_windows: "Windows: enable hibernation on the computer with powercfg /h on (administrator prompt). No on-screen warning.",
     d_off_suspend_windows: "Windows: if hibernation is enabled on the computer it may hibernate instead of sleeping. No on-screen warning.",
     d_off_hibernate_linux: "Linux: needs swap set up for hibernation.",
@@ -161,7 +169,15 @@ const T = {
     d_name: "Name",
     d_mac: "MAC",
     d_ip: "IP address",
-    d_mapped: "Mapped (creates the Home Assistant switch)",
+    d_entities: "Entities in Home Assistant",
+    e_none: "None (not mapped)",
+    e_presence: "Presence only",
+    e_control: "Control only",
+    e_both: "Presence and control",
+    d_entities_hint: "Presence: device_tracker.<name> (home / not home). Control: switch.<name> (on with Wake-on-LAN, off with the off action) and the buttons button.<name>_wol / _shutdown / _hibernate / _suspend, only the ones possible for this device.",
+    b_presence: "Presence",
+    b_control: "Control",
+    b_both: "Presence + control",
     d_power_on: "Power on",
     d_wol: "Wake-on-LAN enabled",
     d_broadcast: "WOL broadcast (optional, for subnets behind a router)",
@@ -544,7 +560,7 @@ class LanPowerManagerPanel extends HTMLElement {
       stateText = this._t(d.pending ? "turning_on" : "turning_off");
     }
     const badges = [
-      d.mapped ? `<span class="badge mapped">${esc(this._t("mapped"))}</span>` : "",
+      d.mapped ? `<span class="badge mapped">${esc(this._t(`b_${d.entity_mode || "control"}`))}</span>` : "",
       d.new && !d.mapped && !d.ignored ? `<span class="badge new">${esc(this._t("new"))}</span>` : "",
       d.windows ? `<span class="badge">${esc(this._t("windows"))}</span>` : "",
       d.ignored ? `<span class="badge">${esc(this._t("ignored"))}</span>` : "",
@@ -556,9 +572,10 @@ class LanPowerManagerPanel extends HTMLElement {
     const id = esc(d.id);
     const busy = d.pending !== null && d.pending !== undefined;
     const actions = [];
+    const control = d.mapped && d.entity_mode !== "presence";
     if (d.mapped) {
-      actions.push(`<button class="btn small ok" data-act="on" data-id="${id}" ${busy || d.online || !d.wol_enabled || !d.mac ? "disabled" : ""}>${esc(this._t("power_on"))}</button>`);
-      actions.push(`<button class="btn small danger" data-act="off" data-id="${id}" ${busy || !d.online || d.shutdown_method === "none" ? "disabled" : ""}>${esc(this._t(`off_${d.off_action || "shutdown"}`))}</button>`);
+      if (control) actions.push(`<button class="btn small ok" data-act="on" data-id="${id}" ${busy || d.online || !d.wol_enabled || !d.mac ? "disabled" : ""}>${esc(this._t("power_on"))}</button>`);
+      if (control) actions.push(`<button class="btn small danger" data-act="off" data-id="${id}" ${busy || !d.online || d.shutdown_method === "none" ? "disabled" : ""}>${esc(this._t(`off_${d.off_action || "shutdown"}`))}</button>`);
       actions.push(`<button class="btn small flat" data-act="edit" data-id="${id}">${esc(this._t("edit"))}</button>`);
     } else {
       actions.push(`<button class="btn small" data-act="edit" data-id="${id}">${esc(this._t("map"))}</button>`);
@@ -612,7 +629,7 @@ class LanPowerManagerPanel extends HTMLElement {
   _openDialog(d) {
     const defaults = this._state?.defaults ?? {};
     const isNew = !d;
-    const dev = d || { mapped: true, wol_enabled: true, shutdown_method: "windows" };
+    const dev = d || { mapped: true, entity_mode: "both", wol_enabled: true, shutdown_method: "windows" };
     const method = dev.shutdown_method === "none" && !dev.mapped && dev.windows ? "windows" : dev.shutdown_method || "none";
     const title = isNew ? this._t("d_title_new") : dev.mapped ? this._t("d_title_edit") : this._t("d_title_map");
     const def = (v) => (v !== undefined && v !== null && v !== "" ? this._t("d_default", { value: v }) : "");
@@ -629,7 +646,12 @@ class LanPowerManagerPanel extends HTMLElement {
               <label class="f">${esc(this._t("d_ip"))}<input name="ip" value="${val(dev.ip)}" placeholder="192.168.1.10"></label>
               <label class="f">${esc(this._t("d_mac"))}<input name="mac" value="${val(dev.mac)}" placeholder="AA:BB:CC:DD:EE:FF"></label>
             </div>
-            <label class="c"><input type="checkbox" name="mapped" checked>${esc(this._t("d_mapped"))}</label>
+            <label class="f">${esc(this._t("d_entities"))}
+              <select name="entities">
+                ${["none", "presence", "control", "both"].map((m) => `<option value="${m}" ${(dev.mapped ? dev.entity_mode || "control" : "both") === m ? "selected" : ""}>${esc(this._t(`e_${m}`))}</option>`).join("")}
+              </select>
+            </label>
+            <div class="hint">${esc(this._t("d_entities_hint"))}</div>
           </fieldset>
           <fieldset>
             <legend>${esc(this._t("d_power_on"))}</legend>
@@ -786,7 +808,8 @@ class LanPowerManagerPanel extends HTMLElement {
         name: f.name.value,
         ip: f.ip.value,
         mac: f.mac.value,
-        mapped: f.mapped.checked,
+        mapped: f.entities.value !== "none",
+        ...(f.entities.value !== "none" ? { entity_mode: f.entities.value } : {}),
         wol_enabled: f.wol_enabled.checked,
         broadcast: f.broadcast.value,
         shutdown_method: f.shutdown_method.value,

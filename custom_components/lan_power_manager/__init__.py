@@ -5,10 +5,12 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse, callback
 from homeassistant.helpers import config_validation as cv, device_registry as dr
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
-from .const import DOMAIN, PANEL_URL_PATH
+from .const import DOMAIN, PANEL_URL_PATH, SIGNAL_DEVICES_UPDATED
+from .entity import HUB_IDENTIFIER, async_sync_device_names, async_sync_registries
 from .manager import NetworkManager
 from .panel import async_register_panel, async_unregister_panel
 from .storage import DeviceStore
@@ -16,7 +18,7 @@ from .websocket_api import async_setup_websocket_api
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS = [Platform.SWITCH]
+PLATFORMS = [Platform.BUTTON, Platform.DEVICE_TRACKER, Platform.SWITCH]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -59,7 +61,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: LanPowerConfigEntry) -> 
 
     await async_register_panel(hass)
     _async_register_hub_device(hass, entry)
+    # HA devices first (the device trackers attach to them), stale entities out.
+    async_sync_registries(hass, entry, manager)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def _sync_names() -> None:
+        async_sync_device_names(hass, manager)
+
+    entry.async_on_unload(async_dispatcher_connect(hass, SIGNAL_DEVICES_UPDATED, _sync_names))
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
     return True
 
@@ -68,7 +78,7 @@ def _async_register_hub_device(hass: HomeAssistant, entry: LanPowerConfigEntry) 
     """A service device on the integration page whose link opens the LAN Power panel."""
     dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
-        identifiers={(DOMAIN, "hub")},
+        identifiers={HUB_IDENTIFIER},
         name="LAN Power Manager",
         manufacturer="LAN Power Manager",
         model="LAN Power panel",

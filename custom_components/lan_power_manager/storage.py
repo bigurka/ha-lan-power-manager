@@ -13,7 +13,14 @@ import uuid
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .const import OFF_SHUTDOWN, SHUTDOWN_NONE, SSH_OS_WINDOWS, STORAGE_KEY, STORAGE_VERSION
+from .const import (
+    ENTITIES_CONTROL,
+    OFF_SHUTDOWN,
+    SHUTDOWN_NONE,
+    SSH_OS_WINDOWS,
+    STORAGE_KEY,
+    STORAGE_VERSION,
+)
 from .network import is_random_mac
 
 _SAVE_DELAY = 5
@@ -37,8 +44,11 @@ class Device:
     ignored: bool = False
     new: bool = True
 
-    # Set when the user maps the device in the panel.
+    # Set when the user maps the device in the panel: only mapped devices get entities.
     mapped: bool = False
+    # Which ones: presence (device_tracker), control (switch + buttons) or both.
+    # Devices mapped before this setting existed had only the switch.
+    entity_mode: str = ENTITIES_CONTROL
     name: str | None = None
     wol_enabled: bool = True
     broadcast: str | None = None

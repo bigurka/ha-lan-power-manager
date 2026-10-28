@@ -54,9 +54,6 @@ from .const import (
     SHUTDOWN_SSH,
     SHUTDOWN_TIMEOUT,
     SHUTDOWN_WINDOWS,
-    SIGNAL_DEVICE_MAPPED,
-    SIGNAL_DEVICE_UNMAPPED,
-    SIGNAL_OFF_ACTION_CHANGED,
     SIGNAL_DEVICES_UPDATED,
     WAKE_TIMEOUT,
 )
@@ -72,6 +69,7 @@ from .network import (
     vendor_from_mac,
     wol_destinations,
 )
+from .plan import entities_signature
 from .power import (
     ShutdownError,
     SshResult,
@@ -592,8 +590,7 @@ class NetworkManager:
             raise self._error("action_not_supported", name=result.label, action=Message("action_hibernate"))
 
         device = existing or self.store.add(Device(first_seen=dt_util.utcnow().isoformat(), new=False))
-        was_mapped = device.mapped
-        old_action = device.off_action
+        before = entities_signature(device)
         if clear_password:
             device.password = None
         if forget_host_key:
@@ -607,15 +604,8 @@ class NetworkManager:
             device.new = False
         self.store.async_schedule_save()
 
-        if device.mapped and not was_mapped:
-            async_dispatcher_send(self.hass, SIGNAL_DEVICE_MAPPED, device.id)
-            self.hass.async_create_task(self.coordinator.async_request_refresh())
-        elif was_mapped and not device.mapped:
-            self.pending.pop(device.id, None)
-            async_dispatcher_send(self.hass, SIGNAL_DEVICE_UNMAPPED, device.id)
-        elif device.mapped and device.off_action != old_action:
-            # The off action is part of the switch entity_id: replace the switch.
-            async_dispatcher_send(self.hass, SIGNAL_OFF_ACTION_CHANGED, device.id, old_action)
+        if entities_signature(device) != before:
+            self._async_rebuild_entities()
         else:
             self.coordinator.async_update_listeners()
         self._notify()
@@ -624,12 +614,18 @@ class NetworkManager:
     @callback
     def async_delete_device(self, device_id: str) -> None:
         device = self._get(device_id)
-        if device.mapped:
-            async_dispatcher_send(self.hass, SIGNAL_DEVICE_UNMAPPED, device.id)
         self.store.remove(device_id)
         self.pending.pop(device_id, None)
         self.store.async_schedule_save()
+        if device.mapped:
+            self._async_rebuild_entities()
         self._notify()
+
+    @callback
+    def _async_rebuild_entities(self) -> None:
+        """Entities to add or remove (mapping, entity mode, off action, ...): reload the entry,
+        which creates exactly the expected entities and removes the others."""
+        self.hass.config_entries.async_schedule_reload(self.entry.entry_id)
 
     @callback
     def _notify(self) -> None:

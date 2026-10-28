@@ -68,28 +68,26 @@
       "power_suspend": {
         "name": "Accendi / Sospendi"
       }
+    },
+    "button": {
+      "wol": {
+        "name": "Accendi (Wake-on-LAN)"
+      },
+      "shutdown": {
+        "name": "Spegni"
+      },
+      "hibernate": {
+        "name": "Iberna"
+      },
+      "suspend": {
+        "name": "Sospendi"
+      }
     }
   },
   "services": {
     "scan": {
       "name": "Scansiona rete",
       "description": "Scansiona subito le reti configurate e aggiorna l'inventario dei dispositivi."
-    },
-    "shutdown": {
-      "name": "Spegni",
-      "description": "Spegne il computer, qualunque sia l'azione predefinita del suo switch."
-    },
-    "hibernate": {
-      "name": "Iberna",
-      "description": "Iberna il computer (Windows: l'ibernazione va attivata con powercfg /h on; Linux: serve la swap configurata per l'ibernazione; non disponibile su macOS)."
-    },
-    "suspend": {
-      "name": "Sospendi",
-      "description": "Mette il computer in sospensione (Windows: se l'ibernazione è attiva può ibernare al suo posto)."
-    },
-    "wake": {
-      "name": "Accendi",
-      "description": "Accende il computer con il Wake-on-LAN (come accendere lo switch)."
     }
   }
 }

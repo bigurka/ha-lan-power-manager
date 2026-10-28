@@ -68,28 +68,26 @@
       "power_suspend": {
         "name": "On / Suspend"
       }
+    },
+    "button": {
+      "wol": {
+        "name": "Wake-on-LAN"
+      },
+      "shutdown": {
+        "name": "Shut down"
+      },
+      "hibernate": {
+        "name": "Hibernate"
+      },
+      "suspend": {
+        "name": "Suspend"
+      }
     }
   },
   "services": {
     "scan": {
       "name": "Scan network",
       "description": "Scans the configured subnets now and updates the device inventory."
-    },
-    "shutdown": {
-      "name": "Shut down",
-      "description": "Shuts the computer down, whatever the default off action of its switch."
-    },
-    "hibernate": {
-      "name": "Hibernate",
-      "description": "Hibernates the computer (Windows: hibernation must be enabled with powercfg /h on; Linux: needs swap set up for hibernation; not available on macOS)."
-    },
-    "suspend": {
-      "name": "Suspend",
-      "description": "Puts the computer to sleep (Windows: if hibernation is enabled it may hibernate instead)."
-    },
-    "wake": {
-      "name": "Wake",
-      "description": "Turns the computer on with Wake-on-LAN (same as turning the switch on)."
     }
   }
 }

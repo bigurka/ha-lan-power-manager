@@ -11,6 +11,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from .const import (
+    ENTITY_MODES,
     OFF_ACTIONS,
     POLICY_FORCE,
     POLICY_SKIP,
@@ -70,6 +71,7 @@ _DEVICE_FIELDS = {
     vol.Optional("ssh_restricted"): bool,
     vol.Optional("forget_host_key"): bool,
     vol.Optional("off_action"): vol.In(OFF_ACTIONS),
+    vol.Optional("entity_mode"): vol.In(ENTITY_MODES),
     vol.Optional("shutdown_delay"): _OPTIONAL_INT,
     vol.Optional("shutdown_message"): _optional_str,
     vol.Optional("user_policy"): vol.Any(None, "", vol.In([POLICY_FORCE, POLICY_SKIP])),

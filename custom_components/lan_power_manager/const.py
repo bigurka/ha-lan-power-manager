@@ -44,11 +44,19 @@ SSH_OS_MACOS = "macos"
 SSH_OSES = (SSH_OS_WINDOWS, SSH_OS_LINUX, SSH_OS_MACOS)
 
 # What switching a computer off does. The device default drives the switch (and is
-# part of its entity_id and name); the actions of the same name run any of them.
+# shown in its name); each action also has its own button.
 OFF_SHUTDOWN = "shutdown"
 OFF_HIBERNATE = "hibernate"
 OFF_SUSPEND = "suspend"
 OFF_ACTIONS = (OFF_SHUTDOWN, OFF_HIBERNATE, OFF_SUSPEND)
+
+# Which Home Assistant entities a mapped device gets.
+ENTITIES_PRESENCE = "presence"  # device_tracker only
+ENTITIES_CONTROL = "control"  # switch + buttons
+ENTITIES_BOTH = "both"
+ENTITY_MODES = (ENTITIES_PRESENCE, ENTITIES_CONTROL, ENTITIES_BOTH)
+
+BUTTON_WOL = "wol"
 SSH_KEY_STORAGE_KEY = "lan_power_manager.ssh_key"
 SSH_KEY_COMMENT = "home-assistant-lan-power-manager"
 
@@ -58,9 +66,6 @@ SHUTDOWN_TIMEOUT = 240
 PENDING_POLL_SECONDS = 5
 
 SIGNAL_DEVICES_UPDATED = f"{DOMAIN}_devices_updated"
-SIGNAL_DEVICE_MAPPED = f"{DOMAIN}_device_mapped"
-SIGNAL_DEVICE_UNMAPPED = f"{DOMAIN}_device_unmapped"
-SIGNAL_OFF_ACTION_CHANGED = f"{DOMAIN}_off_action_changed"
 
 EVENT_NEW_DEVICE = f"{DOMAIN}_new_device"
 EVENT_ACTION_RESULT = f"{DOMAIN}_action_result"

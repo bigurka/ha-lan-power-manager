@@ -2,18 +2,22 @@
   "services": {
     "scan": {
       "service": "mdi:lan-pending"
-    },
-    "shutdown": {
-      "service": "mdi:power"
-    },
-    "hibernate": {
-      "service": "mdi:power-sleep"
-    },
-    "suspend": {
-      "service": "mdi:sleep"
-    },
-    "wake": {
-      "service": "mdi:power-on"
+    }
+  },
+  "entity": {
+    "button": {
+      "wol": {
+        "default": "mdi:power-on"
+      },
+      "shutdown": {
+        "default": "mdi:power"
+      },
+      "hibernate": {
+        "default": "mdi:power-sleep"
+      },
+      "suspend": {
+        "default": "mdi:sleep"
+      }
     }
   }
 }
