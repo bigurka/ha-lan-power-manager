@@ -102,14 +102,29 @@ class DeviceStore:
         self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, STORAGE_KEY, private=True)
         self.devices: dict[str, Device] = {}
         self.last_scan: str | None = None
+        # Texts (e.g. "shelly", "espressif"): unmapped devices whose vendor, name or
+        # hostname contains one are hidden from the list and raise no new-device event.
+        self.hide_rules: list[str] = []
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.devices = {d["id"]: Device.from_dict(d) for d in data.get("devices", [])}
         self.last_scan = data.get("last_scan")
+        self.hide_rules = list(data.get("hide_rules", []))
 
     def _data(self) -> dict[str, Any]:
-        return {"devices": [d.as_dict() for d in self.devices.values()], "last_scan": self.last_scan}
+        return {
+            "devices": [d.as_dict() for d in self.devices.values()],
+            "last_scan": self.last_scan,
+            "hide_rules": self.hide_rules,
+        }
+
+    def hidden_by(self, device: Device) -> str | None:
+        """The hide rule that matches the device, if any. Mapped devices are never hidden."""
+        if device.mapped:
+            return None
+        haystack = " ".join(filter(None, (device.vendor, device.hostname, device.name))).lower()
+        return next((rule for rule in self.hide_rules if rule.lower() in haystack), None)
 
     def async_schedule_save(self) -> None:
         self._store.async_delay_save(self._data, _SAVE_DELAY)

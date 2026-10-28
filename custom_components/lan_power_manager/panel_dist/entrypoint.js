@@ -15,7 +15,20 @@ const T = {
     f_mapped: "Mappati",
     f_unmapped: "Non mappati",
     f_new: "Nuovi",
-    f_ignored: "Ignorati",
+    f_ignored: "Ignorati e nascosti",
+    all_vendors: "Tutti i produttori",
+    unknown_vendor: "(produttore sconosciuto)",
+    hide_vendor: "Nascondi questo produttore",
+    rules: "Filtri",
+    rules_title: "Nascondi dispositivi",
+    rules_hint: "I dispositivi non mappati il cui produttore, nome o hostname contiene uno di questi testi spariscono dall'elenco (li trovi in \"Ignorati e nascosti\") e non generano l'evento di nuovo dispositivo. Es. shelly, espressif, sonos. I dispositivi mappati non vengono mai nascosti.",
+    rules_placeholder: "testo da cercare, es. shelly",
+    rules_empty: "Nessuna regola.",
+    rules_matches: "{n} dispositivi",
+    rules_add: "Aggiungi",
+    remove: "Rimuovi",
+    close: "Chiudi",
+    hidden_by: "nascosto: {rule}",
     c_state: "Stato",
     c_name: "Dispositivo",
     c_ip: "IP",
@@ -128,7 +141,20 @@ const T = {
     f_mapped: "Mapped",
     f_unmapped: "Not mapped",
     f_new: "New",
-    f_ignored: "Ignored",
+    f_ignored: "Ignored & hidden",
+    all_vendors: "All vendors",
+    unknown_vendor: "(unknown vendor)",
+    hide_vendor: "Hide this vendor",
+    rules: "Filters",
+    rules_title: "Hide devices",
+    rules_hint: "Unmapped devices whose vendor, name or hostname contains one of these texts disappear from the list (you find them under \"Ignored & hidden\") and raise no new-device event. E.g. shelly, espressif, sonos. Mapped devices are never hidden.",
+    rules_placeholder: "text to look for, e.g. shelly",
+    rules_empty: "No rules.",
+    rules_matches: "{n} devices",
+    rules_add: "Add",
+    remove: "Remove",
+    close: "Close",
+    hidden_by: "hidden: {rule}",
     c_state: "State",
     c_name: "Device",
     c_ip: "IP",
@@ -240,6 +266,16 @@ function esc(value) {
   })[c]);
 }
 
+// Ignored by hand or hidden by a filter rule: out of the main lists.
+function isHidden(d) {
+  return d.ignored || !!d.hidden_by;
+}
+
+function ruleMatches(rule, d) {
+  if (d.mapped) return false;
+  return [d.vendor, d.hostname, d.name].filter(Boolean).join(" ").toLowerCase().includes(rule.toLowerCase());
+}
+
 function ipKey(ip) {
   if (!ip) return Number.MAX_SAFE_INTEGER;
   return ip.split(".").reduce((acc, part) => acc * 256 + Number(part), 0);
@@ -310,6 +346,11 @@ const STYLES = `
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
   .hint { font-size: 12px; color: var(--secondary-text-color); margin-top: 8px; }
   .hint.bad { color: var(--error-color, #db4437); }
+  select.vendor { padding: 8px 10px; border-radius: 6px; border: 1px solid var(--divider-color); font: inherit;
+    background: var(--card-background-color); color: var(--primary-text-color); max-width: 260px; }
+  .rules { margin: 8px 0; display: flex; flex-direction: column; gap: 6px; }
+  .rule { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border: 1px solid var(--divider-color); border-radius: 6px; }
+  .rule .mono { flex: 1; }
   details.key { margin-bottom: 12px; font-size: 13px; }
   details.key summary { cursor: pointer; color: var(--secondary-text-color); }
   .keybox { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; }
@@ -331,6 +372,7 @@ class LanPowerManagerPanel extends HTMLElement {
     this._state = null;
     this._filter = "all";
     this._search = "";
+    this._vendor = "";
     this._unsub = null;
     this._toastTimer = null;
   }
@@ -437,6 +479,9 @@ class LanPowerManagerPanel extends HTMLElement {
           <button class="btn" id="scan">${esc(this._t("scan"))}</button>
           <button class="btn flat" id="add">${esc(this._t("add"))}</button>
           <input class="search" id="search" placeholder="${esc(this._t("search"))}">
+          <select class="vendor" id="vendor"></select>
+          <button class="btn flat" id="hidevendor" hidden>${esc(this._t("hide_vendor"))}</button>
+          <button class="btn flat" id="rules">${esc(this._t("rules"))}</button>
         </div>
         <div class="toolbar"><div class="chips" id="chips"></div></div>
         <div class="info" id="info"></div>
@@ -452,6 +497,16 @@ class LanPowerManagerPanel extends HTMLElement {
     );
     root.querySelector("#scan").addEventListener("click", () => this._run(this._ws({ type: "scan" })));
     root.querySelector("#add").addEventListener("click", () => this._openDialog(null));
+    root.querySelector("#vendor").addEventListener("change", (ev) => {
+      this._vendor = ev.target.value;
+      this._renderContent();
+    });
+    root.querySelector("#hidevendor").addEventListener("click", () => {
+      const rules = [...(this._state?.hide_rules ?? []), this._vendor];
+      this._vendor = "";
+      this._run(this._ws({ type: "hide_rules/set", rules }));
+    });
+    root.querySelector("#rules").addEventListener("click", () => this._openRulesDialog());
     root.querySelector("#search").addEventListener("input", (ev) => {
       this._search = ev.target.value.trim().toLowerCase();
       this._renderContent();
@@ -467,12 +522,13 @@ class LanPowerManagerPanel extends HTMLElement {
       .filter((d) => {
         switch (this._filter) {
           case "mapped": return d.mapped;
-          case "unmapped": return !d.mapped && !d.ignored;
-          case "new": return d.new && !d.mapped && !d.ignored;
-          case "ignored": return d.ignored;
-          default: return !d.ignored;
+          case "unmapped": return !d.mapped && !isHidden(d);
+          case "new": return d.new && !d.mapped && !isHidden(d);
+          case "ignored": return isHidden(d);
+          default: return !isHidden(d);
         }
       })
+      .filter((d) => !this._vendor || (this._vendor === "__none__" ? !d.vendor : d.vendor === this._vendor))
       .filter((d) => !q || [d.label, d.hostname, d.ip, d.mac, d.vendor].some((v) => (v || "").toLowerCase().includes(q)))
       .sort((a, b) => (b.mapped - a.mapped) || (ipKey(a.ip) - ipKey(b.ip)));
   }
@@ -498,12 +554,13 @@ class LanPowerManagerPanel extends HTMLElement {
     scanBtn.textContent = state?.scanning ? this._t("scanning") : this._t("scan");
 
     const counts = {
-      all: devices.filter((d) => !d.ignored).length,
+      all: devices.filter((d) => !isHidden(d)).length,
       mapped: devices.filter((d) => d.mapped).length,
-      unmapped: devices.filter((d) => !d.mapped && !d.ignored).length,
-      new: devices.filter((d) => d.new && !d.mapped && !d.ignored).length,
-      ignored: devices.filter((d) => d.ignored).length,
+      unmapped: devices.filter((d) => !d.mapped && !isHidden(d)).length,
+      new: devices.filter((d) => d.new && !d.mapped && !isHidden(d)).length,
+      ignored: devices.filter((d) => isHidden(d)).length,
     };
+    this._renderVendors(devices);
     root.querySelector("#chips").innerHTML = Object.keys(counts)
       .map((f) => `<button class="chip${this._filter === f ? " active" : ""}" data-filter="${f}">${esc(this._t(`f_${f}`))} (${counts[f]})</button>`)
       .join("");
@@ -564,6 +621,7 @@ class LanPowerManagerPanel extends HTMLElement {
       d.new && !d.mapped && !d.ignored ? `<span class="badge new">${esc(this._t("new"))}</span>` : "",
       d.windows ? `<span class="badge">${esc(this._t("windows"))}</span>` : "",
       d.ignored ? `<span class="badge">${esc(this._t("ignored"))}</span>` : "",
+      !d.ignored && d.hidden_by ? `<span class="badge">${esc(this._t("hidden_by", { rule: d.hidden_by }))}</span>` : "",
     ].join("");
     const subName = d.name && d.hostname && d.name !== d.hostname ? `<div class="sub">${esc(d.hostname)}</div>` : "";
     const lastAction = d.mapped && d.last_action
@@ -583,7 +641,7 @@ class LanPowerManagerPanel extends HTMLElement {
       actions.push(`<button class="btn small flat" data-act="delete" data-id="${id}">${esc(this._t("delete"))}</button>`);
     }
     return `
-      <tr class="${d.ignored ? "ignored" : ""}">
+      <tr class="${isHidden(d) ? "ignored" : ""}">
         <td class="state"><span class="dot ${dot}"></span>${esc(stateText)}</td>
         <td><span class="name">${esc(d.label)}</span>${badges}${subName}${lastAction}</td>
         <td class="mono">${esc(d.ip || "—")}</td>
@@ -596,6 +654,71 @@ class LanPowerManagerPanel extends HTMLElement {
 
   _device(id) {
     return (this._state?.devices ?? []).find((d) => d.id === id);
+  }
+
+  _renderVendors(devices) {
+    const select = this.shadowRoot.querySelector("#vendor");
+    const counts = new Map();
+    let unknown = 0;
+    for (const d of devices) {
+      if (d.vendor) counts.set(d.vendor, (counts.get(d.vendor) || 0) + 1);
+      else unknown += 1;
+    }
+    const vendors = [...counts.keys()].sort((a, b) => a.localeCompare(b));
+    if (this._vendor && this._vendor !== "__none__" && !counts.has(this._vendor)) this._vendor = "";
+    select.innerHTML =
+      `<option value="">${esc(this._t("all_vendors"))}</option>` +
+      vendors.map((v) => `<option value="${esc(v)}">${esc(v)} (${counts.get(v)})</option>`).join("") +
+      (unknown ? `<option value="__none__">${esc(this._t("unknown_vendor"))} (${unknown})</option>` : "");
+    select.value = this._vendor || "";
+    const already = (this._state?.hide_rules ?? []).some((r) => r.toLowerCase() === (this._vendor || "").toLowerCase());
+    this.shadowRoot.querySelector("#hidevendor").hidden = !this._vendor || this._vendor === "__none__" || already;
+  }
+
+  _openRulesDialog() {
+    const dialog = this.shadowRoot.querySelector("#dialog");
+    const render = () => {
+      const rules = this._state?.hide_rules ?? [];
+      const devices = this._state?.devices ?? [];
+      dialog.innerHTML = `
+        <form method="dialog">
+          <div class="d-head">${esc(this._t("rules_title"))}</div>
+          <div class="d-body">
+            <div class="hint">${esc(this._t("rules_hint"))}</div>
+            <div class="rules">
+              ${rules.length ? rules.map((r, i) => `
+                <div class="rule"><span class="mono">${esc(r)}</span>
+                  <span class="sub">${esc(this._t("rules_matches", { n: devices.filter((d) => ruleMatches(r, d)).length }))}</span>
+                  <button class="btn small flat" type="button" data-remove="${i}">${esc(this._t("remove"))}</button></div>`).join("")
+              : `<div class="hint">${esc(this._t("rules_empty"))}</div>`}
+            </div>
+            <div class="btnrow">
+              <input class="search" id="newrule" placeholder="${esc(this._t("rules_placeholder"))}">
+              <button class="btn small" type="submit">${esc(this._t("rules_add"))}</button>
+            </div>
+          </div>
+          <div class="d-foot"><button class="btn flat" type="button" id="close">${esc(this._t("close"))}</button></div>
+        </form>`;
+      const save = async (next) => {
+        try {
+          await this._ws({ type: "hide_rules/set", rules: next });
+          render();
+        } catch (err) {
+          this._toast(err.message || String(err), true);
+        }
+      };
+      dialog.querySelectorAll("[data-remove]").forEach((btn) =>
+        btn.addEventListener("click", () => save(rules.filter((_, i) => i !== Number(btn.dataset.remove))))
+      );
+      dialog.querySelector("form").addEventListener("submit", (ev) => {
+        ev.preventDefault();
+        const value = dialog.querySelector("#newrule").value.trim();
+        if (value) save([...rules, value]);
+      });
+      dialog.querySelector("#close").addEventListener("click", () => dialog.close());
+    };
+    render();
+    dialog.showModal();
   }
 
   _onListClick(ev) {

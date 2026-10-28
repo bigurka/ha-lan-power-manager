@@ -24,11 +24,11 @@
     "impacket"
   ],
   "requirements": [
-    "aiooui==0.1.9",
+    "aiooui>=0.1.9",
     "impacket==0.13.1",
     "asyncssh>=2.14.0",
     "icmplib>=3.0.4"
   ],
   "single_config_entry": true,
-  "version": "0.4.1"
+  "version": "0.5.0"
 }

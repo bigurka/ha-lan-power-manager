@@ -87,6 +87,7 @@ def async_setup_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_power)
     websocket_api.async_register_command(hass, ws_ssh_setup)
     websocket_api.async_register_command(hass, ws_ssh_test)
+    websocket_api.async_register_command(hass, ws_set_hide_rules)
 
 
 def _manager(hass: HomeAssistant):
@@ -234,3 +235,21 @@ async def ws_ssh_test(hass: HomeAssistant, connection: websocket_api.ActiveConne
         connection.send_error(msg["id"], "ssh_failed", str(err))
         return
     connection.send_result(msg["id"], {"detail": detail})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{PREFIX}/hide_rules/set",
+        vol.Required("rules"): [vol.All(str, vol.Length(max=100))],
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_set_hide_rules(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Texts that hide unmapped devices whose vendor, name or hostname contains them."""
+    try:
+        _manager(hass).async_set_hide_rules(msg["rules"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "not_loaded", str(err))
+        return
+    connection.send_result(msg["id"])

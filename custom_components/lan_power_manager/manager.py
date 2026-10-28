@@ -265,7 +265,7 @@ class NetworkManager:
                 offline += 1
 
         for device in new_devices:
-            if device.new:
+            if device.new and self.store.hidden_by(device) is None:
                 self.hass.bus.async_fire(
                     EVENT_NEW_DEVICE,
                     {"device_id": device.id, "ip": device.ip, "mac": device.mac,
@@ -626,6 +626,13 @@ class NetworkManager:
         return device
 
     @callback
+    def async_set_hide_rules(self, rules: list[str]) -> None:
+        cleaned = [r.strip() for r in rules if r and r.strip()]
+        self.store.hide_rules = list(dict.fromkeys(cleaned))
+        self.store.async_schedule_save()
+        self._notify()
+
+    @callback
     def async_delete_device(self, device_id: str) -> None:
         device = self._get(device_id)
         self.store.remove(device_id)
@@ -648,11 +655,16 @@ class NetworkManager:
     def state_payload(self) -> dict[str, Any]:
         return {
             "devices": [
-                {**d.as_public_dict(), "pending": self.pending[d.id][0] if d.id in self.pending else None}
+                {
+                    **d.as_public_dict(),
+                    "pending": self.pending[d.id][0] if d.id in self.pending else None,
+                    "hidden_by": self.store.hidden_by(d),
+                }
                 for d in self.store.devices.values()
             ],
             "scanning": self.scanning,
             "last_scan": self.store.last_scan,
+            "hide_rules": self.store.hide_rules,
             "ssh_public_key": self.ssh_public_key,
             "ssh_key_fingerprint": self.ssh_key_fingerprint,
             "subnets": [str(s) for s in self.subnets],

@@ -30,8 +30,12 @@ stays in the panel only.
   prefixes (the same data Home Assistant uses). Phones and other devices with a *random/private* MAC have
   no vendor: that address is not registered to anyone.
 - **Persistent inventory**: devices that are off stay listed with last IP and last seen. Filters All /
-  Mapped / Not mapped / New / Ignored, search, manual add (for computers behind a router, where ARP does
-  not reach).
+  Mapped / Not mapped / New / Ignored & hidden, a **vendor filter**, search, manual add (for computers
+  behind a router, where ARP does not reach).
+- **Hide rules** (*Filters* button): unmapped devices whose vendor, name or hostname contains a text you
+  set (e.g. `shelly`, `espressif`, `sonos`) disappear from the list and raise no new-device event; mapped
+  devices are never hidden. With a vendor selected, *Hide this vendor* adds it as a rule in one click.
+  Tip: many Shelly devices have an Espressif MAC, so match them by name with `shelly`.
 - **Mapping from the panel**: name, IP, MAC, Wake-on-LAN, dedicated broadcast, shutdown method and
   credentials (per device, or the defaults from the options).
 - **Entities per mapped device, your choice**: presence only, control only, or both — see
@@ -281,8 +285,13 @@ il resto dell'inventario resta solo nel pannello.
   prefissi MAC (gli stessi dati usati da Home Assistant). Telefoni e altri dispositivi con MAC
   *casuale/privato* non hanno produttore: quell'indirizzo non è registrato a nessuno.
 - **Inventario persistente**: i dispositivi spenti restano in elenco con ultimo IP e ultimo contatto. Filtri
-  Tutti / Mappati / Non mappati / Nuovi / Ignorati, ricerca, aggiunta manuale (per i PC dietro un router
-  dove l'ARP non arriva).
+  Tutti / Mappati / Non mappati / Nuovi / Ignorati e nascosti, un **filtro per produttore**, ricerca,
+  aggiunta manuale (per i PC dietro un router dove l'ARP non arriva).
+- **Regole per nascondere** (pulsante *Filtri*): i dispositivi non mappati il cui produttore, nome o
+  hostname contiene un testo che scegli (es. `shelly`, `espressif`, `sonos`) spariscono dall'elenco e non
+  generano l'evento di nuovo dispositivo; i dispositivi mappati non vengono mai nascosti. Con un produttore
+  selezionato, *Nascondi questo produttore* lo aggiunge come regola con un clic. Nota: molti Shelly hanno
+  un MAC Espressif, quindi conviene prenderli per nome con `shelly`.
 - **Mappatura dal pannello**: nome, IP, MAC, Wake-on-LAN, broadcast dedicato, metodo di spegnimento e
   credenziali (proprie del dispositivo o quelle predefinite delle opzioni).
 - **Entità per dispositivo mappato, a scelta**: solo presenza, solo controllo o entrambi — vedi
