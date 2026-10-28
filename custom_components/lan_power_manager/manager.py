@@ -60,6 +60,7 @@ from .const import (
 from .messages import Message, ha_language, translate
 from .network import (
     Prober,
+    async_load_vendors,
     async_netbios,
     async_reverse_dns,
     parse_subnets,
@@ -143,6 +144,8 @@ class NetworkManager:
 
     async def async_setup(self) -> None:
         self.prober = Prober(await Prober.async_detect_icmp())
+        await async_load_vendors()
+        self._refresh_vendors()
         await self._async_load_ssh_key()
         if not self.prober.icmp_available:
             _LOGGER.info("ICMP not available: liveness is detected with TCP probes only")
@@ -158,6 +161,17 @@ class NetworkManager:
         if self.store.is_empty:
             # First run: build the inventory right away so the panel is not empty.
             self.entry.async_create_background_task(self.hass, self.async_scan(), f"{DOMAIN} first scan")
+
+    def _refresh_vendors(self) -> None:
+        """Vendor names are derived from the MAC: recompute them with the full register."""
+        changed = False
+        for device in self.store.devices.values():
+            vendor = vendor_from_mac(device.mac)
+            if vendor and vendor != device.vendor:
+                device.vendor = vendor
+                changed = True
+        if changed:
+            self.store.async_schedule_save()
 
     async def async_unload(self) -> None:
         for unsub in self._unsubs:

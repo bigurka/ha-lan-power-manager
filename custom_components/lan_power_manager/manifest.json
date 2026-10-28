@@ -1,16 +1,34 @@
 {
   "domain": "lan_power_manager",
   "name": "LAN Power Manager",
-  "after_dependencies": ["network"],
-  "codeowners": ["@bigurka"],
+  "after_dependencies": [
+    "network"
+  ],
+  "codeowners": [
+    "@bigurka"
+  ],
   "config_flow": true,
-  "dependencies": ["http", "frontend", "websocket_api"],
+  "dependencies": [
+    "http",
+    "frontend",
+    "websocket_api"
+  ],
   "documentation": "https://github.com/bigurka/ha-lan-power-manager",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/bigurka/ha-lan-power-manager/issues",
-  "loggers": ["impacket", "asyncssh", "icmplib"],
-  "requirements": ["impacket==0.13.1", "asyncssh>=2.14.0", "icmplib>=3.0.4"],
+  "loggers": [
+    "aiooui",
+    "asyncssh",
+    "icmplib",
+    "impacket"
+  ],
+  "requirements": [
+    "aiooui==0.1.9",
+    "impacket==0.13.1",
+    "asyncssh>=2.14.0",
+    "icmplib>=3.0.4"
+  ],
   "single_config_entry": true,
-  "version": "0.4.0"
+  "version": "0.4.1"
 }

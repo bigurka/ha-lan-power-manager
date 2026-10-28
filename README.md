@@ -26,7 +26,9 @@ stays in the panel only.
   (panel button or the `lan_power_manager.scan` action). A host is alive if it answers ping or a typical
   port (135, 445, 3389, 22, 80, 443, 139 — a refused connection counts too).
 - **Identity from the MAC** (system ARP table, or NetBIOS for Windows PCs): when DHCP changes the IP it
-  is still the same device. Name from reverse DNS or NetBIOS, vendor from the MAC prefix.
+  is still the same device. Name from reverse DNS or NetBIOS, vendor from the full IEEE register of MAC
+  prefixes (the same data Home Assistant uses). Phones and other devices with a *random/private* MAC have
+  no vendor: that address is not registered to anyone.
 - **Persistent inventory**: devices that are off stay listed with last IP and last seen. Filters All /
   Mapped / Not mapped / New / Ignored, search, manual add (for computers behind a router, where ARP does
   not reach).
@@ -275,7 +277,9 @@ il resto dell'inventario resta solo nel pannello.
   (pulsante nel pannello o azione `lan_power_manager.scan`). Un host è "vivo" se risponde al ping o su una
   porta tipica (135, 445, 3389, 22, 80, 443, 139 — anche un rifiuto di connessione conta).
 - **Identità dal MAC** (tabella ARP del sistema, oppure NetBIOS per i PC Windows): se il DHCP cambia l'IP
-  resta lo stesso dispositivo. Nome da DNS inverso o NetBIOS, produttore dal prefisso MAC.
+  resta lo stesso dispositivo. Nome da DNS inverso o NetBIOS, produttore dal registro IEEE completo dei
+  prefissi MAC (gli stessi dati usati da Home Assistant). Telefoni e altri dispositivi con MAC
+  *casuale/privato* non hanno produttore: quell'indirizzo non è registrato a nessuno.
 - **Inventario persistente**: i dispositivi spenti restano in elenco con ultimo IP e ultimo contatto. Filtri
   Tutti / Mappati / Non mappati / Nuovi / Ignorati, ricerca, aggiunta manuale (per i PC dietro un router
   dove l'ARP non arriva).

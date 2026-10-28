@@ -25,7 +25,8 @@ WOL_PORTS = (9, 7)
 _MAC_RE = re.compile(r"^([0-9a-f]{2})[:\-.]?([0-9a-f]{2})[:\-.]?([0-9a-f]{2})[:\-.]?"
                      r"([0-9a-f]{2})[:\-.]?([0-9a-f]{2})[:\-.]?([0-9a-f]{2})$", re.IGNORECASE)
 
-# Only prefixes we are sure of: a wrong vendor is worse than none.
+# Virtual machines and a few prefixes named more clearly than in the IEEE register
+# (525400 QEMU/KVM is a locally administered address, so it must be checked first).
 _OUI = {
     "000C29": "VMware", "005056": "VMware", "000569": "VMware",
     "00155D": "Microsoft Hyper-V", "080027": "VirtualBox", "525400": "QEMU/KVM",
@@ -49,12 +50,32 @@ def normalize_mac(value: str | None) -> str | None:
     return mac
 
 
+async def async_load_vendors() -> None:
+    """Load the IEEE OUI register (aiooui, the same data Home Assistant itself uses)."""
+    try:
+        import aiooui  # noqa: PLC0415
+
+        await aiooui.async_load()
+    except Exception as err:  # noqa: BLE001 - vendors are a nicety, never a reason to fail
+        _LOGGER.warning("MAC vendor register not loaded, vendors stay unknown: %s", err)
+
+
 def vendor_from_mac(mac: str | None) -> str | None:
     mac = normalize_mac(mac)
     if mac is None:
         return None
     prefix = mac.replace(":", "")[:6]
-    return _OUI.get(prefix)
+    if prefix in _OUI:
+        return _OUI[prefix]
+    if is_random_mac(mac):
+        # Random (phones, privacy) or virtual address: not registered to any vendor.
+        return None
+    try:
+        import aiooui  # noqa: PLC0415
+
+        return aiooui.get_vendor(mac) if aiooui.is_loaded() else None
+    except ImportError:
+        return None
 
 
 def is_random_mac(mac: str | None) -> bool:
