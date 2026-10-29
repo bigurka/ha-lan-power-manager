@@ -63,6 +63,8 @@ stays in the panel only.
 
 ## Installation
 
+Requires Home Assistant **2025.3** or later; tested on **2026.2** and **2026.10**.
+
 HACS: *HACS → ⋮ → Custom repositories* → URL of this repository, category **Integration** → install
 **LAN Power Manager** → restart Home Assistant.
 
@@ -318,6 +320,8 @@ il resto dell'inventario resta solo nel pannello.
   scansione), utile per le notifiche.
 
 ## Installazione
+
+Richiede Home Assistant **2025.3** o successivo; provata su **2026.2** e **2026.10**.
 
 Con HACS: *HACS → ⋮ → Repository personalizzati* → URL di questo repository, categoria **Integrazione** →
 installa **LAN Power Manager** → riavvia Home Assistant.

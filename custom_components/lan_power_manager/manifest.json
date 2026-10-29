@@ -30,5 +30,5 @@
     "icmplib>=3.0.4"
   ],
   "single_config_entry": true,
-  "version": "0.5.1"
+  "version": "0.5.2"
 }

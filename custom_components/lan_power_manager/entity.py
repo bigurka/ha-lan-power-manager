@@ -65,7 +65,31 @@ def async_sync_registries(hass: HomeAssistant, entry: ConfigEntry, manager: Netw
         ours = {i[1] for i in ha_device.identifiers if i[0] == DOMAIN}
         if HUB_IDENTIFIER[1] in ours or ours & mapped.keys():
             continue
-        device_registry.async_update_device(ha_device.id, remove_config_entry_id=entry.entry_id)
+        if _devices_per_entry(device_registry):
+            # Home Assistant 2026+: a device belongs to a single config entry.
+            device_registry.async_remove_device(ha_device.id)
+        else:
+            # Older versions: the device may be shared with other integrations.
+            device_registry.async_update_device(ha_device.id, remove_config_entry_id=entry.entry_id)
+
+
+def _devices_per_entry(registry: dr.DeviceRegistry) -> bool:
+    """True on Home Assistant versions where each device belongs to one config entry."""
+    return hasattr(registry, "async_get_device_by_identifier")
+
+
+@callback
+def async_get_ha_device(hass: HomeAssistant, entry: ConfigEntry, device_id: str) -> dr.DeviceEntry | None:
+    """The HA device of a mapped device.
+
+    Home Assistant 2026.x looks devices up per config entry (identifiers are no longer
+    unique across entries); older versions only have the global lookup.
+    """
+    registry = dr.async_get(hass)
+    identifier = (DOMAIN, device_id)
+    if _devices_per_entry(registry):
+        return registry.async_get_device_by_identifier(identifier, entry.entry_id)
+    return registry.async_get_device(identifiers={identifier})
 
 
 @callback
@@ -73,7 +97,7 @@ def async_sync_device_names(hass: HomeAssistant, manager: NetworkManager) -> Non
     """Keep the HA device names in line with the labels edited in the panel."""
     device_registry = dr.async_get(hass)
     for device in manager.store.mapped():
-        ha_device = device_registry.async_get_device(identifiers={(DOMAIN, device.id)})
+        ha_device = async_get_ha_device(hass, manager.entry, device.id)
         if ha_device is not None and ha_device.name != device.label:
             device_registry.async_update_device(ha_device.id, name=device.label)
 
