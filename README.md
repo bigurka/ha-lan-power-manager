@@ -63,7 +63,7 @@ stays in the panel only.
 
 ## Installation
 
-Requires Home Assistant **2025.3** or later; tested on **2026.2** and **2026.10**.
+Requires Home Assistant **2025.3** or later; tested on **2026.2**, **2026.10** and the **2026.11** beta.
 
 HACS: *HACS → ⋮ → Custom repositories* → URL of this repository, category **Integration** → install
 **LAN Power Manager** → restart Home Assistant.
@@ -205,8 +205,8 @@ In the device dialog, *Entities in Home Assistant* decides what a mapped device 
   `button.<name>_wol` (needs the MAC and Wake-on-LAN enabled), `button.<name>_shutdown`,
   `button.<name>_hibernate` (not on macOS), `button.<name>_suspend` (these three need a shutdown method).
 - entity_ids are always in English, names follow the Home Assistant language.
-- The device tracker attaches to the Home Assistant device through the MAC; without a MAC it is a
-  standalone entity.
+- The device tracker belongs to the same Home Assistant device as the switch and the buttons (also
+  without a MAC).
 - Attributes of the switch: `ip`, `mac`, `hostname`, `online`, `in_progress` (`turning_on` /
   `turning_off`), `shutdown_method`, `off_action`, `last_seen`, `last_action`, `last_action_at`,
   `last_action_ok`.
@@ -321,7 +321,7 @@ il resto dell'inventario resta solo nel pannello.
 
 ## Installazione
 
-Richiede Home Assistant **2025.3** o successivo; provata su **2026.2** e **2026.10**.
+Richiede Home Assistant **2025.3** o successivo; provata su **2026.2**, **2026.10** e la beta **2026.11**.
 
 Con HACS: *HACS → ⋮ → Repository personalizzati* → URL di questo repository, categoria **Integrazione** →
 installa **LAN Power Manager** → riavvia Home Assistant.
@@ -470,7 +470,8 @@ Nel dialogo del dispositivo, *Entità in Home Assistant* decide cosa ottiene un 
   `button.<nome>_hibernate` (non su macOS), `button.<nome>_suspend` (questi tre richiedono un metodo di
   spegnimento).
 - Gli entity_id sono sempre in inglese, i nomi seguono la lingua di Home Assistant.
-- Il device tracker si aggancia al dispositivo Home Assistant tramite il MAC; senza MAC è un'entità a sé.
+- Il device tracker appartiene allo stesso dispositivo Home Assistant di switch e pulsanti (anche senza
+  MAC).
 - Attributi dello switch: `ip`, `mac`, `hostname`, `online`, `in_progress` (`turning_on` /
   `turning_off`), `shutdown_method`, `off_action`, `last_seen`, `last_action`, `last_action_at`,
   `last_action_ok`.

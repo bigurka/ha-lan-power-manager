@@ -1,18 +1,20 @@
 """Presence of a mapped device on the network: device_tracker.<device> home / not_home.
 
-The tracker belongs to the HA device the integration creates for the mapped device
-(when it has a MAC; without a MAC it is a standalone entity).
+The tracker declares the HA device the integration creates for the mapped device
+(with its MAC as a connection), as Home Assistant asks of ScannerEntity trackers since
+2026.11. Without it Home Assistant would make up a device named after the hostname,
+renaming ours.
 """
 from __future__ import annotations
 
 from homeassistant.components.device_tracker import ScannerEntity
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.device_registry import format_mac
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo, format_mac
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import LanPowerConfigEntry
-from .entity import LanPowerEntity, async_get_ha_device
+from .const import DOMAIN
+from .entity import LanPowerEntity
 from .manager import NetworkManager
 from .plan import has_presence
 
@@ -27,32 +29,28 @@ async def async_setup_entry(
 
 
 class PresenceTracker(LanPowerEntity, ScannerEntity):
+    # Named after its HA device, like the other entities.
+    _attr_name = None
+
     def __init__(self, manager: NetworkManager, device_id: str) -> None:
         super().__init__(manager, device_id, "tracker")
         device = manager.store.devices[device_id]
-        if device.mac:
-            # Named after its HA device, like the other entities.
-            self._attr_name = None
-        else:
-            # No MAC, no HA device to attach to: carry the device name itself.
-            self._attr_has_entity_name = False
-            self._attr_name = device.label
+        self._device_info = DeviceInfo(
+            identifiers={(DOMAIN, device_id)},
+            connections={(CONNECTION_NETWORK_MAC, format_mac(device.mac))} if device.mac else set(),
+        )
         self.entity_id = f"device_tracker.{self.object_id(device)}"
 
-    async def async_internal_added_to_hass(self) -> None:
-        """Link the tracker to our HA device, skipping ScannerEntity's own device logic.
+    @property
+    def device_info(self) -> DeviceInfo:
+        # A property, not _attr_device_info: before 2026.11 ScannerEntity had its own
+        # device_info property that always returned None.
+        return self._device_info
 
-        Since Home Assistant 2026 a ScannerEntity registers a device with its MAC and
-        names it after the hostname (or the MAC): with the same MAC as our device that
-        renamed it. The rest of the tracker setup still runs (super of ScannerEntity).
-        """
-        ha_device = async_get_ha_device(self.hass, self._manager.entry, self._device_id)
-        if self.registry_entry is not None and ha_device is not None and self.mac_address:
-            if self.registry_entry.device_id != ha_device.id:
-                self.registry_entry = er.async_get(self.hass).async_update_entity(
-                    self.entity_id, device_id=ha_device.id
-                )
-        await super(ScannerEntity, self).async_internal_added_to_hass()
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        # Since 2026.11 trackers start disabled; this one was asked for in the panel.
+        return True
 
     @property
     def unique_id(self) -> str | None:
