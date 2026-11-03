@@ -63,6 +63,7 @@ from .network import (
     async_load_vendors,
     async_netbios,
     async_reverse_dns,
+    is_random_hostname,
     parse_subnets,
     read_arp_table,
     send_magic_packet,
@@ -163,12 +164,16 @@ class NetworkManager:
             self.entry.async_create_background_task(self.hass, self.async_scan(), f"{DOMAIN} first scan")
 
     def _refresh_vendors(self) -> None:
-        """Vendor names are derived from the MAC: recompute them with the full register."""
+        """Recompute what is derived from the network with the current rules: vendor names
+        from the full MAC register, and drop random hostnames kept by older versions."""
         changed = False
         for device in self.store.devices.values():
             vendor = vendor_from_mac(device.mac)
             if vendor and vendor != device.vendor:
                 device.vendor = vendor
+                changed = True
+            if is_random_hostname(device.hostname):
+                device.hostname = None
                 changed = True
         if changed:
             self.store.async_schedule_save()
@@ -213,10 +218,15 @@ class NetworkManager:
                 online, windows = await self.prober.async_probe(ip, 0.7)
                 if not online:
                     return
-                name, mac = await async_netbios(ip) if windows else (None, None)
+                name = await async_reverse_dns(ip)
+                mac = None
+                if windows or name is None:
+                    # NetBIOS gives Windows PCs their real name (DNS/mDNS often only has a
+                    # random GUID for them) and the MAC across routers.
+                    netbios_name, mac = await async_netbios(ip)
+                    name = name or netbios_name
                 if mac:
                     netbios_macs[ip] = mac
-                name = await async_reverse_dns(ip) or name
                 found[ip] = (windows, name)
 
         hosts = [str(h) for network in self.subnets for h in network.hosts()]

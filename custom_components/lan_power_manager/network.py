@@ -184,6 +184,17 @@ def read_arp_table() -> dict[str, str]:
     return table
 
 
+# Windows 10/11 announce themselves over mDNS as "<random GUID>.local" for privacy, and
+# some DHCP servers hand out random names too: such a name says nothing about the device.
+_RANDOM_NAME_RE = re.compile(
+    r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|[0-9a-f]{32})$", re.IGNORECASE
+)
+
+
+def is_random_hostname(name: str | None) -> bool:
+    return bool(name) and _RANDOM_NAME_RE.match(name) is not None
+
+
 async def async_reverse_dns(ip: str, timeout: float = 1.5) -> str | None:
     loop = asyncio.get_running_loop()
     try:
@@ -191,7 +202,9 @@ async def async_reverse_dns(ip: str, timeout: float = 1.5) -> str | None:
     except (TimeoutError, OSError, socket.gaierror):
         return None
     name = host.split(".")[0]
-    return name if name and name != ip else None
+    if not name or name == ip or is_random_hostname(name):
+        return None
+    return name
 
 
 # NetBIOS "node status" request for "*": Windows PCs answer with their name and MAC,
