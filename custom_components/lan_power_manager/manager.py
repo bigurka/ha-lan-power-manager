@@ -71,6 +71,7 @@ from .network import (
     vendor_from_mac,
     wol_destinations,
 )
+from .panel import async_update_panel_visibility
 from .plan import entities_signature
 from .power import (
     ShutdownError,
@@ -636,6 +637,13 @@ class NetworkManager:
         return device
 
     @callback
+    def async_set_show_in_sidebar(self, show: bool) -> None:
+        self.store.show_in_sidebar = show
+        self.store.async_schedule_save()
+        async_update_panel_visibility(self.hass, show)
+        self._notify()
+
+    @callback
     def async_set_hide_rules(self, rules: list[str]) -> None:
         cleaned = [r.strip() for r in rules if r and r.strip()]
         self.store.hide_rules = list(dict.fromkeys(cleaned))
@@ -675,6 +683,7 @@ class NetworkManager:
             "scanning": self.scanning,
             "last_scan": self.store.last_scan,
             "hide_rules": self.store.hide_rules,
+            "show_in_sidebar": self.store.show_in_sidebar,
             "ssh_public_key": self.ssh_public_key,
             "ssh_key_fingerprint": self.ssh_key_fingerprint,
             "subnets": [str(s) for s in self.subnets],

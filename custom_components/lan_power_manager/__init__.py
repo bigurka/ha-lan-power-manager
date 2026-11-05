@@ -59,7 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LanPowerConfigEntry) -> 
     entry.runtime_data = manager
     await manager.async_setup()
 
-    await async_register_panel(hass)
+    await async_register_panel(hass, store.show_in_sidebar)
     _async_register_hub_device(hass, entry)
     # HA devices first (the device trackers attach to them), stale entities out.
     async_sync_registries(hass, entry, manager)

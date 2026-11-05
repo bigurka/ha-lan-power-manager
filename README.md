@@ -81,7 +81,9 @@ Then *Settings → Devices & services → Add integration → LAN Power Manager*
 The integration **Options** also set: full scan interval (0 = manual only, default 60 min), state check
 interval of the mapped devices (default 30 s), Windows shutdown delay and message, logged-on user rule.
 
-The **LAN Power** panel appears in the sidebar (administrators only).
+The **LAN Power** panel appears in the sidebar (administrators only). The *Show in the sidebar* checkbox in
+the panel hides that entry; the panel stays reachable from *Settings → Devices & services → LAN Power
+Manager* (link of the "LAN Power Manager" device) and at `/lan-power-manager`.
 
 ## Requirements on the computers
 
@@ -341,7 +343,10 @@ Dalle **Opzioni** dell'integrazione si cambiano anche: intervallo della scansion
 manuale, predefinito 60 min), intervallo di controllo dello stato dei dispositivi mappati (predefinito
 30 s), preavviso e messaggio di spegnimento Windows, regola per l'utente collegato.
 
-Il pannello **LAN Power** compare nella barra laterale (solo per gli amministratori).
+Il pannello **LAN Power** compare nella barra laterale (solo per gli amministratori). La casella *Mostra
+nella barra laterale* nel pannello nasconde quella voce; il pannello resta raggiungibile da *Impostazioni →
+Dispositivi e servizi → LAN Power Manager* (link del dispositivo "LAN Power Manager") e all'indirizzo
+`/lan-power-manager`.
 
 ## Requisiti sui computer
 

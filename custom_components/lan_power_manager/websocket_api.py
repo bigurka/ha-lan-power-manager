@@ -88,6 +88,7 @@ def async_setup_websocket_api(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, ws_ssh_setup)
     websocket_api.async_register_command(hass, ws_ssh_test)
     websocket_api.async_register_command(hass, ws_set_hide_rules)
+    websocket_api.async_register_command(hass, ws_set_show_in_sidebar)
 
 
 def _manager(hass: HomeAssistant):
@@ -249,6 +250,21 @@ def ws_set_hide_rules(hass: HomeAssistant, connection: websocket_api.ActiveConne
     """Texts that hide unmapped devices whose vendor, name or hostname contains them."""
     try:
         _manager(hass).async_set_hide_rules(msg["rules"])
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "not_loaded", str(err))
+        return
+    connection.send_result(msg["id"])
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{PREFIX}/settings/show_in_sidebar", vol.Required("show"): bool}
+)
+@websocket_api.require_admin
+@callback
+def ws_set_show_in_sidebar(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict) -> None:
+    """Show or hide the panel entry in the sidebar."""
+    try:
+        _manager(hass).async_set_show_in_sidebar(msg["show"])
     except HomeAssistantError as err:
         connection.send_error(msg["id"], "not_loaded", str(err))
         return

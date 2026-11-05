@@ -6,7 +6,7 @@ import pathlib
 
 from homeassistant.components.frontend import async_register_built_in_panel, async_remove_panel
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN, PANEL_ICON, PANEL_TITLE, PANEL_URL_PATH
 
@@ -21,18 +21,15 @@ _STATIC_URL_PATH = f"/api/{DOMAIN}/panel/{_VERSION}"
 _STATIC_REGISTERED = f"{DOMAIN}_static_registered"
 
 
-async def async_register_panel(hass: HomeAssistant) -> None:
-    # Static paths cannot be unregistered: register once per HA run (entry reloads included).
-    if not hass.data.get(_STATIC_REGISTERED):
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(_STATIC_URL_PATH, str(_PANEL_DIST_DIR), True)]
-        )
-        hass.data[_STATIC_REGISTERED] = True
+@callback
+def _register_panel(hass: HomeAssistant, show_in_sidebar: bool, *, update: bool = False) -> None:
+    # A panel without a sidebar title is left out of the sidebar, while staying reachable
+    # at /lan-power-manager and from the "LAN Power Manager" device link (same as NeoPill).
     async_register_built_in_panel(
         hass,
         component_name="custom",
-        sidebar_title=PANEL_TITLE,
-        sidebar_icon=PANEL_ICON,
+        sidebar_title=PANEL_TITLE if show_in_sidebar else None,
+        sidebar_icon=PANEL_ICON if show_in_sidebar else None,
         frontend_url_path=PANEL_URL_PATH,
         config={
             "_panel_custom": {
@@ -43,7 +40,24 @@ async def async_register_panel(hass: HomeAssistant) -> None:
             }
         },
         require_admin=True,
+        update=update,
     )
+
+
+async def async_register_panel(hass: HomeAssistant, show_in_sidebar: bool) -> None:
+    # Static paths cannot be unregistered: register once per HA run (entry reloads included).
+    if not hass.data.get(_STATIC_REGISTERED):
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(_STATIC_URL_PATH, str(_PANEL_DIST_DIR), True)]
+        )
+        hass.data[_STATIC_REGISTERED] = True
+    _register_panel(hass, show_in_sidebar)
+
+
+@callback
+def async_update_panel_visibility(hass: HomeAssistant, show_in_sidebar: bool) -> None:
+    """Show or hide the sidebar entry live (connected frontends refresh their panels)."""
+    _register_panel(hass, show_in_sidebar, update=True)
 
 
 async def async_unregister_panel(hass: HomeAssistant) -> None:

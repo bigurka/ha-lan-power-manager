@@ -105,18 +105,23 @@ class DeviceStore:
         # Texts (e.g. "shelly", "espressif"): unmapped devices whose vendor, name or
         # hostname contains one are hidden from the list and raise no new-device event.
         self.hide_rules: list[str] = []
+        # The panel entry in the sidebar; when hidden the panel is still reachable from
+        # the "LAN Power Manager" device link and at /lan-power-manager.
+        self.show_in_sidebar = True
 
     async def async_load(self) -> None:
         data = await self._store.async_load() or {}
         self.devices = {d["id"]: Device.from_dict(d) for d in data.get("devices", [])}
         self.last_scan = data.get("last_scan")
         self.hide_rules = list(data.get("hide_rules", []))
+        self.show_in_sidebar = bool(data.get("show_in_sidebar", True))
 
     def _data(self) -> dict[str, Any]:
         return {
             "devices": [d.as_dict() for d in self.devices.values()],
             "last_scan": self.last_scan,
             "hide_rules": self.hide_rules,
+            "show_in_sidebar": self.show_in_sidebar,
         }
 
     def hidden_by(self, device: Device) -> str | None:
